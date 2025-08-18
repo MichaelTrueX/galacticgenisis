@@ -38,7 +38,16 @@ export async function buildServer() {
       // Minimal idempotency: echo Idempotency-Key if provided
       const idemKey = req.headers['idempotency-key'] as any;
 
-      const orderId = nanoid();
+      // Idempotency stub: if same key seen before in this process, reuse orderId
+      const memory = (app as any).__idem || ((app as any).__idem = new Map());
+      let orderId: string;
+      if (typeof idemKey === 'string' && memory.has(idemKey)) {
+        orderId = memory.get(idemKey);
+      } else {
+        orderId = nanoid();
+        if (typeof idemKey === 'string') memory.set(idemKey, orderId);
+      }
+
       const target_turn = 1; // stub for now
 
       // We are not writing to DB yet; this is a stub endpoint
