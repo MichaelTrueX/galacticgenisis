@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: gg_postgres
+    environment:
+      POSTGRES_USER: gg
+      POSTGRES_PASSWORD: ggpassword
+      POSTGRES_DB: gg
+    ports:
+      - "5432:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
+  nats:
+    image: nats:2-alpine
+    container_name: gg_nats
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
+volumes:
+  pg_data:
+
