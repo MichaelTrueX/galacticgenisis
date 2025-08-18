@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, 'feat/**', 'fix/**' ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install and test api-gateway
+        working-directory: services/api-gateway
+        run: |
+          npm ci || npm install
+          npm test --silent
+      - name: Install and test orders-svc
+        working-directory: services/orders-svc
+        run: |
+          npm ci || npm install
+          npm test --silent
+
