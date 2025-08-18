@@ -3,8 +3,12 @@ import { nanoid } from 'nanoid';
 
 const port = Number(process.env.PORT || 8081);
 
-export async function buildServer() {
+import type { Publisher } from './publisher';
+
+export async function buildServer(pub?: Publisher) {
   const app = Fastify({ logger: true });
+
+  const publisher: Publisher = pub ?? { publish: async () => {} };
 
   type OrderBody = { kind: string; payload: Record<string, unknown> };
 
@@ -49,6 +53,9 @@ export async function buildServer() {
       }
 
       const target_turn = 1; // stub for now
+
+      // Publish receipt stub (to be wired to NATS later)
+      await publisher.publish('order.receipt', { orderId, status: 'accepted', target_turn });
 
       // We are not writing to DB yet; this is a stub endpoint
       return rep.status(202).send({ orderId, target_turn, idemKey });
