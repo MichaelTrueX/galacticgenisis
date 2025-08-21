@@ -11,7 +11,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "fastify": "^4.28.1"
+    "@fastify/websocket": "^8.3.1",
+    "fastify": "^4.28.1",
+    "ws": "^8.18.3"
   },
   "devDependencies": {
     "tsx": "^4.16.2",

@@ -2,9 +2,14 @@ import Fastify from 'fastify';
 
 const port = Number(process.env.PORT || 8080);
 const ORDERS_SVC_URL = process.env.ORDERS_SVC_URL || 'http://localhost:8081';
+const EVENTS_WS_URL = process.env.EVENTS_WS_URL || 'ws://localhost:8090';
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
+  // Register Fastify websocket plugin
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fastifyWs = require('@fastify/websocket');
+  app.register(fastifyWs);
 
   app.get('/v1/health', async (_req, _rep) => {
     return { ok: true };
@@ -50,6 +55,29 @@ export async function buildServer() {
       }
     }
   );
+
+  // WS proxy: GET /v1/stream -> event-dispatcher WS (simple pipe)
+  app.get('/v1/stream', { websocket: true } as any, (connection: any /* fastify ws plugin shape */) => {
+    const { socket } = connection;
+    // Lazy require ws to avoid import types clashing
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const WebSocket = require('ws');
+    const upstream = new WebSocket(EVENTS_WS_URL);
+
+    // Pipe upstream -> client
+    upstream.on('message', (data: any) => {
+      try { socket.send(data); } catch {}
+    });
+    upstream.on('close', () => { try { socket.close(); } catch {} });
+    upstream.on('error', () => { try { socket.close(); } catch {} });
+
+    // Pipe client -> upstream (if needed later)
+    socket.on('message', (data: any) => {
+      try { upstream.send(data); } catch {}
+    });
+    socket.on('close', () => { try { upstream.close(); } catch {} });
+    socket.on('error', () => { try { upstream.close(); } catch {} });
+  });
 
   return app;
 }
