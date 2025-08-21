@@ -1,0 +1,47 @@
+openapi: 3.1.0
+info:
+  title: Galactic Genesis API
+  version: 0.1.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /v1/health:
+    get:
+      operationId: health
+      responses:
+        '200':
+          description: OK
+  /v1/orders:
+    post:
+      operationId: submitOrder
+      parameters:
+        - name: Idempotency-Key
+          in: header
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                kind:
+                  type: string
+                payload:
+                  type: object
+              required: [kind, payload]
+      responses:
+        '202':
+          description: Accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orderId:
+                    type: string
+                  target_turn:
+                    type: integer
+
