@@ -10,30 +10,46 @@ export async function buildServer() {
     return { ok: true };
   });
 
-  // Proxy: POST /v1/orders -> orders-svc
-  app.post('/v1/orders', async (req, rep) => {
-    const url = `${ORDERS_SVC_URL}/v1/orders`;
-    const headers: Record<string, string> = {
-      'content-type': 'application/json',
-    };
-    // Pass through idempotency and auth headers if present
-    const idem = req.headers['idempotency-key'];
-    if (typeof idem === 'string') headers['idempotency-key'] = idem;
-    const auth = req.headers['authorization'];
-    if (typeof auth === 'string') headers['authorization'] = auth;
+  // Proxy: POST /v1/orders -> orders-svc (validate body before forwarding)
+  app.post<{ Body: { kind: string; payload: Record<string, unknown> } }>(
+    '/v1/orders',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            kind: { type: 'string' },
+            payload: { type: 'object' },
+          },
+          required: ['kind', 'payload'],
+          additionalProperties: true,
+        },
+      },
+    },
+    async (req, rep) => {
+      const url = `${ORDERS_SVC_URL}/v1/orders`;
+      const headers: Record<string, string> = {
+        'content-type': 'application/json',
+      };
+      // Pass through idempotency and auth headers if present
+      const idem = req.headers['idempotency-key'];
+      if (typeof idem === 'string') headers['idempotency-key'] = idem;
+      const auth = req.headers['authorization'];
+      if (typeof auth === 'string') headers['authorization'] = auth;
 
-    const body = JSON.stringify(req.body ?? {});
-    const res = await fetch(url, { method: 'POST', headers, body });
-    const text = await res.text();
+      const body = JSON.stringify(req.body ?? {});
+      const res = await fetch(url, { method: 'POST', headers, body });
+      const text = await res.text();
 
-    // Try to return JSON if possible
-    try {
-      const json = JSON.parse(text);
-      return rep.status(res.status).send(json);
-    } catch {
-      return rep.status(res.status).send(text);
+      // Try to return JSON if possible
+      try {
+        const json = JSON.parse(text);
+        return rep.status(res.status).send(json);
+      } catch {
+        return rep.status(res.status).send(text);
+      }
     }
-  });
+  );
 
   return app;
 }
