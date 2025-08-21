@@ -8,6 +8,7 @@ services:
       - ../services/api-gateway:/app
     environment:
       - ORDERS_SVC_URL=http://orders-svc:8081
+      - FLEETS_SVC_URL=http://fleets-svc:8082
       - EVENTS_WS_URL=ws://event-dispatcher:8090
     command: sh -lc "npm ci || npm i && npm run dev"
 
