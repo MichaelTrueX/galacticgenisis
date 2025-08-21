@@ -10,6 +10,7 @@ Events
 
 Config
 - NATS_URL: when set, uses NATS publisher; else falls back to console publisher
+- USE_WASM_SIM=1 with SIM_WASM_PATH=./path/to/pkg.js to enable WASM sim-core bridge; fallback is a mock sim
 
 Tests
 - Publisher is mocked in unit tests; no NATS required

@@ -17,6 +17,8 @@ function createMockSim(): Sim {
   };
 }
 
+import { loadSimFromEnv } from './sim-loader';
+
 export async function buildServer(pub?: Publisher, sim?: Sim) {
   const app = Fastify({ logger: true });
 
@@ -29,7 +31,7 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
     publisher = createConsolePublisher();
   }
 
-  const simCore: Sim = sim ?? createMockSim();
+  const simCore: Sim = sim ?? (await loadSimFromEnv().catch(() => createMockSim()));
 
   type OrderBody = { kind: string; payload: Record<string, unknown> };
 
