@@ -24,4 +24,9 @@ jobs:
         run: |
           npm ci || npm install
           npm test --silent
+      - name: Install and test event-dispatcher
+        working-directory: services/event-dispatcher
+        run: |
+          npm ci || npm install
+          npm test --silent
 
