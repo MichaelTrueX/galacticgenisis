@@ -29,4 +29,9 @@ jobs:
         run: |
           npm ci || npm install
           npm test --silent
+      - name: Install and test fleets-svc
+        working-directory: services/fleets-svc
+        run: |
+          npm ci || npm install
+          npm test --silent
 
