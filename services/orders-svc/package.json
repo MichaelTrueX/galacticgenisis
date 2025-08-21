@@ -12,6 +12,16 @@
   },
   "dependencies": {
     "fastify": "^4.28.1",
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> origin/main
+>>>>>>> origin/main
+>>>>>>> origin/main
     "nanoid": "^5.0.7",
     "nats": "^2.29.3",
     "pg": "^8.12.0"
@@ -22,3 +32,24 @@
     "vitest": "^2.0.5"
   }
 }
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+=======
+    "pg": "^8.12.0",
+    "nanoid": "^5.0.7"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "tsx": "^4.16.2",
+    "vitest": "^2.0.5"
+  }
+}
+
+>>>>>>> origin/main
+>>>>>>> origin/main
+>>>>>>> origin/main
+>>>>>>> origin/main
