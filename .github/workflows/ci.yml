@@ -27,6 +27,9 @@ jobs:
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> origin/main
 >>>>>>> origin/main
       - name: Install and test event-dispatcher
         working-directory: services/event-dispatcher
@@ -35,7 +38,10 @@ jobs:
           npm test --silent
 <<<<<<< HEAD
 =======
+<<<<<<< HEAD
 =======
+=======
+>>>>>>> origin/main
 >>>>>>> origin/main
 >>>>>>> origin/main
 
