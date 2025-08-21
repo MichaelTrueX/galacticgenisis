@@ -6,7 +6,18 @@ const port = Number(process.env.PORT || 8081);
 import type { Publisher } from './publisher';
 import { createConsolePublisher, createNatsPublisher } from './publisher';
 
-export async function buildServer(pub?: Publisher) {
+export type Sim = { apply: (order: { kind: string; payload: Record<string, unknown> }) => Promise<{ applied: boolean; notes: string }> };
+
+function createMockSim(): Sim {
+  return {
+    async apply(order) {
+      if (order.kind === 'move') return { applied: true, notes: 'moved one step (mock)' };
+      return { applied: false, notes: 'unsupported kind (mock)' };
+    },
+  };
+}
+
+export async function buildServer(pub?: Publisher, sim?: Sim) {
   const app = Fastify({ logger: true });
 
   let publisher: Publisher;
@@ -17,6 +28,8 @@ export async function buildServer(pub?: Publisher) {
   } else {
     publisher = createConsolePublisher();
   }
+
+  const simCore: Sim = sim ?? createMockSim();
 
   type OrderBody = { kind: string; payload: Record<string, unknown> };
 
@@ -40,8 +53,17 @@ export async function buildServer(pub?: Publisher) {
               orderId: { type: 'string' },
               target_turn: { type: 'integer' },
               idemKey: { anyOf: [{ type: 'string' }, { type: 'array' }, { type: 'null' }] },
+              delta: {
+                type: 'object',
+                properties: {
+                  applied: { type: 'boolean' },
+                  notes: { type: 'string' },
+                },
+                required: ['applied', 'notes'],
+              },
             },
             required: ['orderId', 'target_turn'],
+            additionalProperties: true,
           },
         },
       },
@@ -62,11 +84,14 @@ export async function buildServer(pub?: Publisher) {
 
       const target_turn = 1; // stub for now
 
+      // Call Sim Core (mock or wasm-bridged) for deterministic delta
+      const delta = await simCore.apply({ kind: req.body.kind, payload: req.body.payload });
+
       // Publish receipt stub (to be wired to NATS later)
-      await publisher.publish('order.receipt', { orderId, status: 'accepted', target_turn });
+      await publisher.publish('order.receipt', { orderId, status: 'accepted', target_turn, delta });
 
       // We are not writing to DB yet; this is a stub endpoint
-      return rep.status(202).send({ orderId, target_turn, idemKey });
+      return rep.status(202).send({ orderId, target_turn, idemKey, delta });
     }
   );
 
