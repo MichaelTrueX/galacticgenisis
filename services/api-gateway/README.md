@@ -7,7 +7,10 @@ Responsibilities
 - AuthN (dev JWT stub), CORS/CSP, rate limiting
 - Route to backend services
 
-Next
-- Implement GET /v1/health
-- Proxy /v1/orders to orders-svc
+Implemented
+- GET /v1/health
+- Proxy POST /v1/orders → orders-svc (passes Idempotency-Key, Authorization)
+
+Config
+- ORDERS_SVC_URL (default http://localhost:8081)
 
