@@ -1,0 +1,40 @@
+name: Dev Compose Smoke Test
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Start compose stack
+        run: |
+          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml up -d
+
+      - name: Wait for gateway
+        run: |
+          for i in {1..60}; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/health || true)
+            if [ "$code" = "200" ]; then echo 'gateway ready'; exit 0; fi
+            sleep 3
+          done
+          echo 'gateway not ready' >&2
+          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml logs || true
+          exit 1
+
+      - name: Run smoke checks
+        run: bash scripts/smoke.sh
+
+      - name: Compose logs (always)
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml logs || true
+
+      - name: Shutdown
+        if: always()
+        run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml down -v
+
