@@ -2,6 +2,10 @@ import Fastify from 'fastify';
 
 const port = Number(process.env.PORT || 8080);
 const ORDERS_SVC_URL = process.env.ORDERS_SVC_URL || 'http://localhost:8081';
+<<<<<<< HEAD
+const FLEETS_SVC_URL = process.env.FLEETS_SVC_URL || 'http://localhost:8082';
+=======
+>>>>>>> origin/main
 const EVENTS_WS_URL = process.env.EVENTS_WS_URL || 'ws://localhost:8090';
 
 export async function buildServer() {
@@ -56,6 +60,20 @@ export async function buildServer() {
     }
   );
 
+<<<<<<< HEAD
+  // Proxy: GET /v1/fleets -> fleets-svc
+  app.get('/v1/fleets', async (_req, rep) => {
+    const res = await fetch(`${FLEETS_SVC_URL}/v1/fleets`);
+    const text = await res.text();
+    try {
+      return rep.status(res.status).send(JSON.parse(text));
+    } catch {
+      return rep.status(res.status).send(text);
+    }
+  });
+
+=======
+>>>>>>> origin/main
   // WS proxy: GET /v1/stream -> event-dispatcher WS (simple pipe)
   app.get('/v1/stream', { websocket: true } as any, (connection: any /* fastify ws plugin shape */) => {
     const { socket } = connection;

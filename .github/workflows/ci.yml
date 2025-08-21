@@ -29,6 +29,9 @@ jobs:
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> origin/main
 >>>>>>> origin/main
 >>>>>>> origin/main
       - name: Install and test event-dispatcher
@@ -37,10 +40,18 @@ jobs:
           npm ci || npm install
           npm test --silent
 <<<<<<< HEAD
+      - name: Install and test fleets-svc
+        working-directory: services/fleets-svc
+        run: |
+          npm ci || npm install
+          npm test --silent
+=======
+<<<<<<< HEAD
 =======
 <<<<<<< HEAD
 =======
 =======
+>>>>>>> origin/main
 >>>>>>> origin/main
 >>>>>>> origin/main
 >>>>>>> origin/main

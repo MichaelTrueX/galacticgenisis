@@ -17,6 +17,9 @@
 <<<<<<< HEAD
 =======
 <<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> origin/main
 >>>>>>> origin/main
 >>>>>>> origin/main
     "nanoid": "^5.0.7",
@@ -33,6 +36,8 @@
 =======
 <<<<<<< HEAD
 =======
+<<<<<<< HEAD
+=======
 =======
     "pg": "^8.12.0",
     "nanoid": "^5.0.7"
@@ -44,6 +49,7 @@
   }
 }
 
+>>>>>>> origin/main
 >>>>>>> origin/main
 >>>>>>> origin/main
 >>>>>>> origin/main

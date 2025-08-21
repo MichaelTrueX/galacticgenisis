@@ -1,0 +1,55 @@
+version: "3.9"
+
+services:
+  api-gateway:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ../services/api-gateway:/app
+    environment:
+      - ORDERS_SVC_URL=http://orders-svc:8081
+      - EVENTS_WS_URL=ws://event-dispatcher:8090
+    command: sh -lc "npm ci || npm i && npm run dev"
+    ports:
+      - "8080:8080"
+
+  orders-svc:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ../services/orders-svc:/app
+    environment:
+      - NATS_URL=nats://nats:4222
+      # - USE_WASM_SIM=1
+      # - SIM_WASM_PATH=/app/path/to/pkg.js
+    command: sh -lc "npm ci || npm i && npm run dev"
+    ports:
+      - "8081:8081"
+
+  event-dispatcher:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ../services/event-dispatcher:/app
+    environment:
+      - NATS_URL=nats://nats:4222
+      - WS_PORT=8090
+    command: sh -lc "npm ci || npm i && npm run dev"
+    ports:
+      - "8090:8090"
+
+  fleets-svc:
+    image: node:20-alpine
+    working_dir: /app
+    volumes:
+      - ../services/fleets-svc:/app
+    command: sh -lc "npm ci || npm i && npm run dev"
+    ports:
+      - "8082:8082"
+
+  nats:
+    image: nats:2-alpine
+    ports:
+      - "4222:4222"
+      - "8222:8222"
+
