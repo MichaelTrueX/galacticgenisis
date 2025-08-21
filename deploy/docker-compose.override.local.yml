@@ -5,9 +5,9 @@ services:
     ports:
       - "${GATEWAY_PORT:-8080}:8080"
   orders-svc:
-    ports: []
+    ports: null
   fleets-svc:
-    ports: []
+    ports: null
   event-dispatcher:
-    ports: []
+    ports: null
 
