@@ -3,7 +3,7 @@ import Fastify from 'fastify';
 const port = Number(process.env.PORT || 8080);
 const ORDERS_SVC_URL = process.env.ORDERS_SVC_URL || 'http://localhost:8081';
 
-async function buildServer() {
+export async function buildServer() {
   const app = Fastify({ logger: true });
 
   app.get('/v1/health', async (_req, _rep) => {
@@ -44,8 +44,10 @@ async function start() {
   console.log(`api-gateway listening on :${port}`);
 }
 
-start().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+if (import.meta.url === `file://${process.argv[1]}`) {
+  start().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}
 
