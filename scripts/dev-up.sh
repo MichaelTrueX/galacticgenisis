@@ -25,18 +25,27 @@ error() { printf "[ERR ] %s\n" "$*" 1>&2; }
 
 need_install=false
 run_smoke=false
+force_port=false
+auto_port=false
+CLI_PORT=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --install-docker) need_install=true; shift ;;
     --smoke) run_smoke=true; shift ;;
+    --force-port) force_port=true; shift ;;
+    --auto-port) auto_port=true; shift ;;
+    --port) CLI_PORT="$2"; shift 2 ;;
     -h|--help)
       cat <<USAGE
-Usage: $0 [--install-docker] [--smoke]
+Usage: $0 [--install-docker] [--smoke] [--port N] [--force-port] [--auto-port]
   --install-docker  Install Docker Engine and compose plugin (Ubuntu, requires sudo)
   --smoke           After boot, run scripts/smoke.sh against the gateway
+  --port N          Host port for the gateway (overrides GATEWAY_PORT env)
+  --force-port      Kill any process using the chosen host port before start (DANGEROUS)
+  --auto-port       Find the first free port starting at the chosen port
 Env:
-  GATEWAY_PORT      Defaults to 8080
+  GATEWAY_PORT      Defaults to 8080; can be overridden by --port
 USAGE
       exit 0
       ;;
@@ -88,8 +97,42 @@ require_docker() {
   fi
 }
 
+is_port_free() { ! ss -ltn 2>/dev/null | awk '{print $4}' | grep -E ":${GATEWAY_PORT}$" >/dev/null; }
+kill_port_if_needed() {
+  if $force_port; then
+    if ss -ltnp 2>/dev/null | grep -E ":${GATEWAY_PORT} .*LISTEN" >/dev/null; then
+      warn "--force-port set: killing processes on ${GATEWAY_PORT}"
+      # Kill processes bound to the port (best-effort)
+      PIDS=$(ss -ltnp 2>/dev/null | awk -v p=":${GATEWAY_PORT}" '$4 ~ p {print $NF}' | sed -E 's/.*pid=([0-9]+).*/\1/' | sort -u)
+      if [[ -n "$PIDS" ]]; then
+        sudo kill -9 $PIDS || true
+      fi
+    fi
+  fi
+}
+
+choose_port() {
+  if [[ -n "$CLI_PORT" ]]; then GATEWAY_PORT="$CLI_PORT"; fi
+  if $auto_port; then
+    base="$GATEWAY_PORT"
+    for ((i=0; i<50; i++)); do
+      try=$((base + i))
+      if ss -ltn 2>/dev/null | awk '{print $4}' | grep -E ":${try}$" >/dev/null; then
+        continue
+      else
+        GATEWAY_PORT="$try"; export GATEWAY_PORT
+        info "Auto-selected free port: ${GATEWAY_PORT}"
+        return
+      fi
+    done
+    warn "Auto-port could not find a free port near ${base}; continuing with ${GATEWAY_PORT}"
+  fi
+}
+
 bring_up() {
-  info "Starting compose stack..."
+  choose_port
+  kill_port_if_needed
+  info "Starting compose stack on gateway port ${GATEWAY_PORT}..."
   # Use the local override that publishes only the gateway on the chosen port,
   # avoiding conflicts on 8081/8082/8090 for other services.
   docker compose -f "$COMPOSE_BASE" -f "$COMPOSE_DEV" -f "$COMPOSE_LOCAL" up -d
