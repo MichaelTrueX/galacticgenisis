@@ -16,6 +16,8 @@ GATEWAY_PORT=${GATEWAY_PORT:-8080}
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")"/.. && pwd)"
 COMPOSE_BASE="$ROOT_DIR/deploy/docker-compose.yml"
 COMPOSE_DEV="$ROOT_DIR/deploy/docker-compose.override.yml"
+COMPOSE_PORTS="$ROOT_DIR/deploy/docker-compose.override.ports.yml"
+COMPOSE_LOCAL="$ROOT_DIR/deploy/docker-compose.override.local.yml"
 
 info()  { printf "[INFO] %s\n" "$*"; }
 warn()  { printf "[WARN] %s\n" "$*"; }
@@ -88,7 +90,7 @@ require_docker() {
 
 bring_up() {
   info "Starting compose stack..."
-  docker compose -f "$COMPOSE_BASE" -f "$COMPOSE_DEV" up -d
+  docker compose -f "$COMPOSE_BASE" -f "$COMPOSE_DEV" -f "$COMPOSE_LOCAL" -f "$COMPOSE_PORTS" up -d
 }
 
 wait_gateway() {

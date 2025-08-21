@@ -1,0 +1,10 @@
+version: "3.9"
+
+services:
+  orders-svc:
+    ports: []
+  fleets-svc:
+    ports: []
+  event-dispatcher:
+    ports: []
+
