@@ -1,5 +1,5 @@
 {
-  "name": "orders-svc",
+  "name": "event-dispatcher",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,27 +11,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "fastify": "^4.28.1",
-<<<<<<< HEAD
-    "nanoid": "^5.0.7",
     "nats": "^2.29.3",
-    "pg": "^8.12.0"
+    "ws": "^8.17.1"
   },
   "devDependencies": {
     "tsx": "^4.16.2",
     "typescript": "^5.5.4",
-    "vitest": "^2.0.5"
-  }
-}
-=======
-    "pg": "^8.12.0",
-    "nanoid": "^5.0.7"
-  },
-  "devDependencies": {
-    "typescript": "^5.5.4",
-    "tsx": "^4.16.2",
     "vitest": "^2.0.5"
   }
 }
 
->>>>>>> origin/main
