@@ -90,7 +90,9 @@ require_docker() {
 
 bring_up() {
   info "Starting compose stack..."
-  docker compose -f "$COMPOSE_BASE" -f "$COMPOSE_DEV" -f "$COMPOSE_LOCAL" -f "$COMPOSE_PORTS" up -d
+  # Use the local override that publishes only the gateway on the chosen port,
+  # avoiding conflicts on 8081/8082/8090 for other services.
+  docker compose -f "$COMPOSE_BASE" -f "$COMPOSE_DEV" -f "$COMPOSE_LOCAL" up -d
 }
 
 wait_gateway() {
