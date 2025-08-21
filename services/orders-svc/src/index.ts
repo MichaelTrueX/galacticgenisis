@@ -4,11 +4,19 @@ import { nanoid } from 'nanoid';
 const port = Number(process.env.PORT || 8081);
 
 import type { Publisher } from './publisher';
+import { createConsolePublisher, createNatsPublisher } from './publisher';
 
 export async function buildServer(pub?: Publisher) {
   const app = Fastify({ logger: true });
 
-  const publisher: Publisher = pub ?? { publish: async () => {} };
+  let publisher: Publisher;
+  if (pub) {
+    publisher = pub;
+  } else if (process.env.NATS_URL) {
+    publisher = await createNatsPublisher(process.env.NATS_URL);
+  } else {
+    publisher = createConsolePublisher();
+  }
 
   type OrderBody = { kind: string; payload: Record<string, unknown> };
 
