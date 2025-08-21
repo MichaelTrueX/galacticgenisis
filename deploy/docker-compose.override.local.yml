@@ -10,4 +10,8 @@ services:
     ports: []
   event-dispatcher:
     ports: []
+  postgres:
+    ports: []
+  nats:
+    ports: []
 
