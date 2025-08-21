@@ -3,6 +3,10 @@ import { nanoid } from 'nanoid';
 
 const port = Number(process.env.PORT || 8081);
 
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> origin/main
 import type { Publisher } from './publisher';
 import { createConsolePublisher, createNatsPublisher } from './publisher';
 
@@ -18,6 +22,14 @@ export async function buildServer(pub?: Publisher) {
     publisher = createConsolePublisher();
   }
 
+<<<<<<< HEAD
+=======
+=======
+export async function buildServer() {
+  const app = Fastify({ logger: true });
+
+>>>>>>> origin/main
+>>>>>>> origin/main
   type OrderBody = { kind: string; payload: Record<string, unknown> };
 
   app.post<{ Body: OrderBody }>(
@@ -62,9 +74,18 @@ export async function buildServer(pub?: Publisher) {
 
       const target_turn = 1; // stub for now
 
+<<<<<<< HEAD
       // Publish receipt stub (to be wired to NATS later)
       await publisher.publish('order.receipt', { orderId, status: 'accepted', target_turn });
 
+=======
+<<<<<<< HEAD
+      // Publish receipt stub (to be wired to NATS later)
+      await publisher.publish('order.receipt', { orderId, status: 'accepted', target_turn });
+
+=======
+>>>>>>> origin/main
+>>>>>>> origin/main
       // We are not writing to DB yet; this is a stub endpoint
       return rep.status(202).send({ orderId, target_turn, idemKey });
     }
