@@ -44,4 +44,19 @@ paths:
                     type: string
                   target_turn:
                     type: integer
+  /v1/fleets:
+    get:
+      operationId: listFleets
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  fleets:
+                    type: array
+                    items:
+                      type: object
 

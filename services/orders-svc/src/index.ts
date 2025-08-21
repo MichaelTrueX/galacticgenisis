@@ -5,6 +5,7 @@ const port = Number(process.env.PORT || 8081);
 
 import type { Publisher } from './publisher';
 import { createConsolePublisher, createNatsPublisher } from './publisher';
+import { startDevTick } from './dev-tick';
 
 export type Sim = { apply: (order: { kind: string; payload: Record<string, unknown> }) => Promise<{ applied: boolean; notes: string }> };
 
@@ -30,6 +31,9 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
   } else {
     publisher = createConsolePublisher();
   }
+
+  // expose publisher for dev-tick
+  (app as any).publisher = publisher;
 
   const simCore: Sim = sim ?? (await loadSimFromEnv().catch(() => createMockSim()));
 
@@ -102,8 +106,12 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
 
 async function start() {
   const app = await buildServer();
+  const stopTick = startDevTick((app as any).publisher ?? { publish: async () => {} });
   await app.listen({ port, host: '0.0.0.0' });
   console.log(`orders-svc listening on :${port}`);
+  // graceful shutdown
+  process.on('SIGINT', () => { try { stopTick(); } catch {} process.exit(0); });
+  process.on('SIGTERM', () => { try { stopTick(); } catch {} process.exit(0); });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
