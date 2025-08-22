@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import pg from 'pg';
+import { randomUUID } from 'node:crypto';
 
 const { Pool } = pg;
 
@@ -31,6 +32,85 @@ export async function buildServer() {
       return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
     }
   });
+
+  // Create a fleet
+  app.post<{ Body: { id?: string; empire_id: string; system_id: string; stance?: string; supply?: number } }>(
+    '/v1/fleets',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          properties: {
+            id: { type: 'string' },
+            empire_id: { type: 'string' },
+            system_id: { type: 'string' },
+            stance: { type: 'string' },
+            supply: { type: 'integer' }
+          },
+          required: ['empire_id', 'system_id'],
+          additionalProperties: false
+        },
+      },
+    },
+    async (req, rep) => {
+      const id = req.body.id || randomUUID();
+      const { empire_id, system_id } = req.body;
+      const stance = req.body.stance ?? 'neutral';
+      const supply = typeof req.body.supply === 'number' ? req.body.supply : 100;
+      try {
+        const { rows } = await pool.query(
+          `insert into fleets (id, empire_id, system_id, stance, supply)
+           values ($1, $2, $3, $4, $5)
+           returning id, empire_id, system_id, stance, supply`,
+          [id, empire_id, system_id, stance, supply]
+        );
+        return rep.status(201).send(rows[0]);
+      } catch (err: any) {
+        app.log.error({ err }, 'fleet create failed');
+        // unique violation
+        if (err && err.code === '23505') return rep.status(409).send({ error: 'conflict', message: 'id already exists' });
+        return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
+      }
+    }
+  );
+
+  // Update a fleet (stance/supply)
+  app.patch<{ Params: { id: string }; Body: { stance?: string; supply?: number } }>(
+    '/v1/fleets/:id',
+    {
+      schema: {
+        params: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] },
+        body: {
+          type: 'object',
+          properties: {
+            stance: { type: 'string' },
+            supply: { type: 'integer' }
+          },
+          additionalProperties: false
+        },
+      },
+    },
+    async (req, rep) => {
+      const { id } = req.params;
+      const stance = req.body.stance ?? null;
+      const supply = typeof req.body.supply === 'number' ? req.body.supply : null;
+      try {
+        const { rows } = await pool.query(
+          `update fleets
+             set stance = coalesce($2, stance),
+                 supply = coalesce($3, supply)
+           where id = $1
+           returning id, empire_id, system_id, stance, supply`,
+          [id, stance, supply]
+        );
+        if (!rows[0]) return rep.status(404).send({ error: 'not_found' });
+        return rep.send(rows[0]);
+      } catch (err: any) {
+        app.log.error({ err }, 'fleet update failed');
+        return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
+      }
+    }
+  );
 
   return app;
 }
