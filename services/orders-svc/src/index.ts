@@ -86,6 +86,13 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
       },
     },
     async (req, rep) => {
+      // Validate move payload early
+      if (req.body.kind === 'move') {
+        const fid = (req.body.payload as any)?.fleetId || (req.body.payload as any)?.fleet_id;
+        const to = (req.body.payload as any)?.toSystemId || (req.body.payload as any)?.to_system_id;
+        if (!fid) return rep.status(400).send({ error: 'invalid_request', message: 'fleetId is required' });
+        if (!to) return rep.status(400).send({ error: 'invalid_request', message: 'toSystemId is required' });
+      }
       // Minimal idempotency: echo Idempotency-Key if provided
       const idemKey = req.headers['idempotency-key'] as any;
 
@@ -110,7 +117,7 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
       const upsertSql = `
         insert into orders (id, empire_id, kind, payload, target_turn, idem_key, status)
         values ($1, $2, $3, $4::jsonb, $5, $6, $7)
-        on conflict (idem_key) do update set idem_key = excluded.idem_key
+        on conflict (idem_key) do update set id = excluded.id -- ensure same orderId returned on repeat
         returning id, target_turn, status
       `;
       const upsertParams = [orderId, empireId, req.body.kind, JSON.stringify(req.body.payload ?? {}), target_turn, idem, 'accepted'];
@@ -184,14 +191,13 @@ function startApplyWorker(publisher: Publisher, intervalMs = Number(process.env.
       if (!row) { await client.query('COMMIT'); return; }
       const orderId = row.id as string;
       const fleetId = (row.payload?.fleetId || row.payload?.fleet_id) as string | undefined;
-      if (!fleetId) { await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']); await client.query('COMMIT'); return; }
+      const toSystemId = (row.payload?.toSystemId || row.payload?.to_system_id) as string | undefined;
+      if (!fleetId || !toSystemId) { await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']); await client.query('COMMIT'); return; }
 
-      // Toggle system for the fleet between sys-1 and sys-2
+      // Move the fleet to the target system
       const f = await client.query('select id, system_id from fleets where id = $1 for update', [fleetId]);
       if (!f.rows[0]) { await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']); await client.query('COMMIT'); return; }
-      const current = f.rows[0].system_id as string;
-      const next = current === 'sys-1' ? 'sys-2' : 'sys-1';
-      await client.query('update fleets set system_id = $2 where id = $1', [fleetId, next]);
+      await client.query('update fleets set system_id = $2 where id = $1', [fleetId, toSystemId]);
       await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']);
       await client.query('COMMIT');
 

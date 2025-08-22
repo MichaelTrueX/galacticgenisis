@@ -33,6 +33,9 @@ export async function buildServer() {
     }
   });
 
+  // Health
+  app.get('/v1/health', async () => ({ ok: true }));
+
   // Create a fleet
   app.post<{ Body: { id?: string; empire_id: string; system_id: string; stance?: string; supply?: number } }>(
     '/v1/fleets',
@@ -58,6 +61,10 @@ export async function buildServer() {
       const stance = req.body.stance ?? 'neutral';
       const supply = typeof req.body.supply === 'number' ? req.body.supply : 100;
       try {
+        // Validate system exists
+        const sys = await pool.query('select 1 from systems where id = $1', [system_id]);
+        if (!sys.rows[0]) return rep.status(400).send({ error: 'invalid_system', message: 'system_id not found' });
+
         const { rows } = await pool.query(
           `insert into fleets (id, empire_id, system_id, stance, supply)
            values ($1, $2, $3, $4, $5)
