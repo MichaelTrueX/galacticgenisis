@@ -11,7 +11,7 @@ describe('orders-svc publisher hook', () => {
       method: 'POST',
       url: '/v1/orders',
       headers: { 'idempotency-key': 'p1' },
-      payload: { kind: 'move', payload: { fleetId: 'f1' } },
+      payload: { kind: 'move', payload: { fleetId: 'f1', toSystemId: 'sys-2' } },
     });
 
     expect(res.statusCode).toBe(202);

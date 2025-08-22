@@ -5,7 +5,7 @@ describe('Idempotency stub', () => {
   it('returns same orderId for same Idempotency-Key', async () => {
     const app = await buildServer();
 
-    const payload = { kind: 'move', payload: { fleetId: 'f1' } };
+    const payload = { kind: 'move', payload: { fleetId: 'f1', toSystemId: 'sys-2' } };
     const headers = { 'idempotency-key': 'same-key-1' };
 
     const r1 = await app.inject({ method: 'POST', url: '/v1/orders', payload, headers });
