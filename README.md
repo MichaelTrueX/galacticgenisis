@@ -1,35 +1,51 @@
-# Galactic Genesis — Monorepo Scaffold
+# Galactic Genesis — Dev Backend
 
-This repository hosts the backend services, database schema, and deployment scaffolding for the Galactic Genesis 4X space strategy game.
+This monorepo hosts the backend services, database schema, and dev tooling for the Galactic Genesis 4X strategy game.
 
-Goals of this initial scaffold:
-- Minimal, reliable structure to enable remote agents to work in parallel
-- Docker Compose for shared infra (PostgreSQL, NATS)
-- Database schema (MVP subset) aligned with the ERD
-- OpenAPI v1 stub for health and orders
-- Service directories with READMEs describing responsibilities and next steps
+What works today
+- Docker Compose dev stack (PostgreSQL, NATS, services)
+- API Gateway with proxied routes to services
+  - GET /v1/health
+  - GET /v1/fleets
+  - POST /v1/orders (idempotency header supported)
+  - WS /v1/stream
 
-Directory layout
+Quick Start (Ubuntu)
+- Start (fixed ports; frees 19080 on host if needed):
+  - bash scripts/dev-up-fixed.sh
+- Stop:
+  - scripts/dev-down.sh
+
+Test the API (defaults to http://localhost:19080)
+- Health:
+  - curl http://localhost:19080/v1/health
+- Fleets:
+  - curl http://localhost:19080/v1/fleets
+- Create order:
+  - curl -X POST http://localhost:19080/v1/orders \
+    -H "content-type: application/json" \
+    -H "Idempotency-Key: demo-1" \
+    -d '{"kind":"move","payload":{"fleetId":"f1"}}'
+- WebSocket stream (optional):
+  - npm i -g wscat && wscat -c ws://localhost:19080/v1/stream
+
+Repo layout
 - deploy/ — docker-compose and infra config
-- db/sql/ — SQL migrations (001_init.sql for MVP subset)
+- scripts/ — dev scripts (dev-up-fixed.sh, dev-up.sh, dev-down.sh)
 - services/
-  - api-gateway/ — Fastify gateway (planned)
-  - orders-svc/ — Order intake + scheduler (planned)
-  - fleets-svc/ — Fleet CRUD + movement (planned)
-  - event-dispatcher/ — WS + NATS fanout (planned)
-- sim-core/ — Deterministic Sim stub (planned)
+  - api-gateway/ — Fastify gateway
+  - orders-svc/ — Order intake + scheduler (stub)
+  - fleets-svc/ — Fleet CRUD + movement (stub)
+  - event-dispatcher/ — WS + NATS fanout (stub)
+- db/sql/ — SQL migrations
 - apis/space4x/ — OpenAPI specs
 
-How to use (dev)
-1) Bring up infra only (DB + NATS) using docker compose
-2) Develop services locally; connect to DB/NATS via .env
+Notes
+- The gateway does not serve "/" content; use "/v1/*" endpoints. A friendly root index is provided to list them.
+- Services are currently stubs; persistence and real Sim logic are next.
 
-Note: This commit does not install dependencies or run services yet. It focuses on structure, schema, and contracts.
-
-Next steps (suggested)
-- Implement api-gateway health endpoint in Fastify
-- Implement orders-svc with POST /v1/orders and idempotency
-- Add a minimal Rust Sim Core stub with apply() returning deterministic mock deltas
-- Wire event-dispatcher to NATS and expose WS /v1/stream
-- Add CI (lint + unit tests) and golden determinism tests for Sim
+Roadmap (near term)
+- Minimal persistence for fleets and orders
+- Deterministic Sim Core stub and basic apply() loop
+- CI: lint + unit tests + integration smoke
 

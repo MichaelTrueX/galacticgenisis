@@ -7,13 +7,27 @@ const EVENTS_WS_URL = process.env.EVENTS_WS_URL || 'ws://localhost:8090';
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
-  // Register Fastify websocket plugin
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const fastifyWs = require('@fastify/websocket');
+  // Register Fastify websocket plugin (ESM-friendly dynamic import)
+  const fastifyWs = (await import('@fastify/websocket')).default as any;
   app.register(fastifyWs);
 
   app.get('/v1/health', async (_req, _rep) => {
     return { ok: true };
+  });
+
+  // Friendly root index to help manual testing
+  app.get('/', async (_req, rep) => {
+    return rep.send({
+      ok: true,
+      service: 'api-gateway',
+      hint: 'Use the /v1/* endpoints below',
+      endpoints: {
+        health: '/v1/health',
+        fleets: '/v1/fleets',
+        orders: 'POST /v1/orders',
+        stream: 'WS /v1/stream'
+      }
+    });
   });
 
   // Proxy: POST /v1/orders -> orders-svc (validate body before forwarding)
