@@ -14,6 +14,9 @@ on conflict (id) do nothing;
 insert into systems (id, name, position_xyz)
 values ('sys-1', 'Sol', '{"x":0,"y":0,"z":0}'::jsonb)
 on conflict (id) do nothing;
+insert into systems (id, name, position_xyz)
+values ('sys-2', 'Alpha Centauri', '{"x":1,"y":0,"z":0}'::jsonb)
+on conflict (id) do nothing;
 
 -- fleets
 insert into fleets (id, empire_id, system_id, stance, supply)

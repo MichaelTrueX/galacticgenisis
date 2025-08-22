@@ -146,6 +146,19 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
     }
   });
 
+  // List orders (basic)
+  app.get('/v1/orders', async (_req, rep) => {
+    try {
+      const { rows } = await pool.query(
+        'select id, empire_id, kind, payload, target_turn, idem_key, status, created_at from orders order by created_at desc limit 50'
+      );
+      return rep.send({ orders: rows });
+    } catch (err: any) {
+      app.log.error({ err }, 'orders list failed');
+      return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
+    }
+  });
+
   return app;
 }
 
