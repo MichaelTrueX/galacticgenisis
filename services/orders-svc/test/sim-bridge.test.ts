@@ -18,7 +18,7 @@ describe('orders-svc with WASM sim bridge', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/orders',
-      payload: { kind: 'move', payload: { fleetId: 'f1' } },
+      payload: { kind: 'move', payload: { fleetId: 'f1', toSystemId: 'sys-2' } },
     });
     expect(res.statusCode).toBe(202);
     const json = res.json();
