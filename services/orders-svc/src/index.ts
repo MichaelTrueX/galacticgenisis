@@ -162,14 +162,67 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
   return app;
 }
 
+// Simple worker: pick an accepted 'move' order, mark processing, toggle fleet system, mark applied
+function startApplyWorker(publisher: Publisher, intervalMs = Number(process.env.APPLY_MS || 2000)) {
+  const pool = new Pool({
+    host: process.env.PGHOST || 'postgres',
+    port: Number(process.env.PGPORT || 5432),
+    user: process.env.PGUSER || 'gg',
+    password: process.env.PGPASSWORD || 'ggpassword',
+    database: process.env.PGDATABASE || 'gg',
+  });
+
+  const t = setInterval(async () => {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      // Find one accepted move order
+      const sel = await client.query(
+        "select id, payload from orders where status = 'accepted' and kind = 'move' order by created_at asc limit 1 for update skip locked"
+      );
+      const row = sel.rows[0];
+      if (!row) { await client.query('COMMIT'); return; }
+      const orderId = row.id as string;
+      const fleetId = (row.payload?.fleetId || row.payload?.fleet_id) as string | undefined;
+      if (!fleetId) { await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']); await client.query('COMMIT'); return; }
+
+      // Toggle system for the fleet between sys-1 and sys-2
+      const f = await client.query('select id, system_id from fleets where id = $1 for update', [fleetId]);
+      if (!f.rows[0]) { await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']); await client.query('COMMIT'); return; }
+      const current = f.rows[0].system_id as string;
+      const next = current === 'sys-1' ? 'sys-2' : 'sys-1';
+      await client.query('update fleets set system_id = $2 where id = $1', [fleetId, next]);
+      await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']);
+      await client.query('COMMIT');
+
+      try {
+        await publisher.publish('fleet.moved', { fleetId, from: current, to: next, orderId });
+        await publisher.publish('order.applied', { orderId, status: 'applied' });
+      } catch {}
+    } catch (err) {
+      try { await client.query('ROLLBACK'); } catch {}
+    } finally {
+      client.release();
+    }
+  }, intervalMs);
+
+  return () => clearInterval(t);
+}
+
 async function start() {
   const app = await buildServer();
   const stopTick = startDevTick((app as any).publisher ?? { publish: async () => {} });
+
+  // Start a tiny background worker to apply 'move' orders by toggling fleet system between sys-1 and sys-2
+  // This is for MVP demo purposes only; later we will replace with a proper scheduler.
+  const pub: Publisher = (app as any).publisher;
+  const worker = startApplyWorker(pub);
+
   await app.listen({ port, host: '0.0.0.0' });
   console.log(`orders-svc listening on :${port}`);
   // graceful shutdown
-  process.on('SIGINT', () => { try { stopTick(); } catch {} process.exit(0); });
-  process.on('SIGTERM', () => { try { stopTick(); } catch {} process.exit(0); });
+  process.on('SIGINT', () => { try { stopTick(); worker(); } catch {} process.exit(0); });
+  process.on('SIGTERM', () => { try { stopTick(); worker(); } catch {} process.exit(0); });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
