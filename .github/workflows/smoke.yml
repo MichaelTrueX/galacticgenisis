@@ -14,17 +14,19 @@ jobs:
 
       - name: Start compose stack
         run: |
-          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml up -d
+          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml up -d
 
       - name: Wait for gateway
+        env:
+          GATEWAY_PORT: 8080
         run: |
           for i in {1..60}; do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/v1/health || true)
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:${GATEWAY_PORT}/v1/health || true)
             if [ "$code" = "200" ]; then echo 'gateway ready'; exit 0; fi
             sleep 3
           done
           echo 'gateway not ready' >&2
-          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml logs || true
+          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml logs || true
           exit 1
 
       - name: Run smoke checks
@@ -32,9 +34,9 @@ jobs:
 
       - name: Compose logs (always)
         if: always()
-        run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml logs || true
+        run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml logs || true
 
       - name: Shutdown
         if: always()
-        run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml down -v
+        run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml down -v
 
