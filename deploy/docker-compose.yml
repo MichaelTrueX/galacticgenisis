@@ -10,6 +10,7 @@ services:
       POSTGRES_DB: gg
     volumes:
       - pg_data:/var/lib/postgresql/data
+      - ../db/sql:/docker-entrypoint-initdb.d:ro
 
   nats:
     image: nats:2-alpine

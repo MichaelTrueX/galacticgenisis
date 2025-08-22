@@ -11,7 +11,8 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "fastify": "^4.28.1"
+    "fastify": "^4.28.1",
+    "pg": "^8.11.5"
   },
   "devDependencies": {
     "tsx": "^4.16.2",
