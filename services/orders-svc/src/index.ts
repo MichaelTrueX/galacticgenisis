@@ -1,6 +1,8 @@
 import Fastify from 'fastify';
 import { nanoid } from 'nanoid';
+import pg from 'pg';
 
+const { Pool } = pg;
 const port = Number(process.env.PORT || 8081);
 
 import type { Publisher } from './publisher';
@@ -22,6 +24,15 @@ import { loadSimFromEnv } from './sim-loader';
 
 export async function buildServer(pub?: Publisher, sim?: Sim) {
   const app = Fastify({ logger: true });
+
+  // DB pool (internal docker network defaults)
+  const pool = new Pool({
+    host: process.env.PGHOST || 'postgres',
+    port: Number(process.env.PGPORT || 5432),
+    user: process.env.PGUSER || 'gg',
+    password: process.env.PGPASSWORD || 'ggpassword',
+    database: process.env.PGDATABASE || 'gg',
+  });
 
   let publisher: Publisher;
   if (pub) {
@@ -93,13 +104,47 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
       // Call Sim Core (mock or wasm-bridged) for deterministic delta
       const delta = await simCore.apply({ kind: req.body.kind, payload: req.body.payload });
 
-      // Publish receipt stub (to be wired to NATS later)
-      await publisher.publish('order.receipt', { orderId, status: 'accepted', target_turn, delta });
+      // Persist order (minimal fields). Default empire for demo.
+      const empireId = process.env.DEFAULT_EMPIRE_ID || 'emp-1';
+      const idem = typeof idemKey === 'string' ? idemKey : null;
+      const upsertSql = `
+        insert into orders (id, empire_id, kind, payload, target_turn, idem_key, status)
+        values ($1, $2, $3, $4::jsonb, $5, $6, $7)
+        on conflict (idem_key) do update set idem_key = excluded.idem_key
+        returning id, target_turn, status
+      `;
+      const upsertParams = [orderId, empireId, req.body.kind, JSON.stringify(req.body.payload ?? {}), target_turn, idem, 'accepted'];
+      let row;
+      try {
+        const { rows } = await pool.query(upsertSql, upsertParams);
+        row = rows[0];
+      } catch (err: any) {
+        app.log.error({ err }, 'orders upsert failed');
+        return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
+      }
 
-      // We are not writing to DB yet; this is a stub endpoint
-      return rep.status(202).send({ orderId, target_turn, idemKey, delta });
+      // Publish receipt stub (to be wired to NATS later)
+      await publisher.publish('order.receipt', { orderId: row.id, status: row.status, target_turn: row.target_turn, delta });
+
+      return rep.status(202).send({ orderId: row.id, target_turn: row.target_turn, idemKey, delta });
     }
   );
+
+  // Fetch order by id
+  app.get('/v1/orders/:id', async (req, rep) => {
+    const id = (req.params as any).id as string;
+    try {
+      const { rows } = await pool.query(
+        'select id, empire_id, kind, payload, target_turn, idem_key, status, created_at from orders where id = $1',
+        [id]
+      );
+      if (!rows[0]) return rep.status(404).send({ error: 'not_found' });
+      return rep.send(rows[0]);
+    } catch (err: any) {
+      app.log.error({ err }, 'orders fetch failed');
+      return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
+    }
+  });
 
   return app;
 }
