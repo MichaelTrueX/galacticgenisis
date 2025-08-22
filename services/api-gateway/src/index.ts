@@ -81,6 +81,44 @@ export async function buildServer() {
       return rep.status(res.status).send(text);
     }
   });
+
+  // Proxy: POST /v1/fleets -> fleets-svc
+  app.post('/v1/fleets', async (req, rep) => {
+    const res = await fetch(`${FLEETS_SVC_URL}/v1/fleets`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify((req as any).body ?? {}),
+    });
+    const text = await res.text();
+    try { return rep.status(res.status).send(JSON.parse(text)); } catch { return rep.status(res.status).send(text); }
+  });
+
+  // Proxy: PATCH /v1/fleets/:id -> fleets-svc
+  app.patch('/v1/fleets/:id', async (req, rep) => {
+    const { id } = (req.params as any) as { id: string };
+    const res = await fetch(`${FLEETS_SVC_URL}/v1/fleets/${id}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify((req as any).body ?? {}),
+    });
+    const text = await res.text();
+    try { return rep.status(res.status).send(JSON.parse(text)); } catch { return rep.status(res.status).send(text); }
+  });
+
+  // Proxy: GET /v1/orders -> orders-svc
+  app.get('/v1/orders', async (_req, rep) => {
+    const res = await fetch(`${ORDERS_SVC_URL}/v1/orders`);
+    const text = await res.text();
+    try { return rep.status(res.status).send(JSON.parse(text)); } catch { return rep.status(res.status).send(text); }
+  });
+
+  // Proxy: GET /v1/orders/:id -> orders-svc
+  app.get('/v1/orders/:id', async (req, rep) => {
+    const { id } = (req.params as any) as { id: string };
+    const res = await fetch(`${ORDERS_SVC_URL}/v1/orders/${id}`);
+    const text = await res.text();
+    try { return rep.status(res.status).send(JSON.parse(text)); } catch { return rep.status(res.status).send(text); }
+  });
   // WS proxy: GET /v1/stream -> event-dispatcher WS (simple pipe)
   app.get('/v1/stream', { websocket: true } as any, (connection: any /* fastify ws plugin shape */) => {
     const { socket } = connection;
