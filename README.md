@@ -20,12 +20,13 @@ Test the API (defaults to http://localhost:19080)
 - Health:
   - curl http://localhost:19080/v1/health
 - Fleets:
-  - curl http://localhost:19080/v1/fleets
-- Create order:
-  - curl -X POST http://localhost:19080/v1/orders \
-    -H "content-type: application/json" \
-    -H "Idempotency-Key: demo-1" \
-    -d '{"kind":"move","payload":{"fleetId":"f1"}}'
+  - List: curl http://localhost:19080/v1/fleets
+  - Create: curl -X POST http://localhost:19080/v1/fleets -H 'content-type: application/json' -d '{"empire_id":"emp-1","system_id":"sys-1","stance":"neutral","supply":100}'
+  - Update: curl -X PATCH http://localhost:19080/v1/fleets/<id> -H 'content-type: application/json' -d '{"stance":"aggressive"}'
+- Orders:
+  - Submit move: curl -X POST http://localhost:19080/v1/orders -H 'content-type: application/json' -H 'Idempotency-Key: demo-1' -d '{"kind":"move","payload":{"fleetId":"fleet-1","toSystemId":"sys-2"}}'
+  - List: curl http://localhost:19080/v1/orders
+  - Get: curl http://localhost:19080/v1/orders/<orderId>
 - WebSocket stream (optional):
   - npm i -g wscat && wscat -c ws://localhost:19080/v1/stream
 
