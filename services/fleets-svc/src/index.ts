@@ -1,21 +1,24 @@
 import Fastify from 'fastify';
-import pg from 'pg';
 import { randomUUID } from 'node:crypto';
 
-const { Pool } = pg;
 const TEST_MODE = process.env.NODE_ENV === 'test';
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
 
   // DB pool (internal-only; compose network)
-  const pool = TEST_MODE ? null : new Pool({
-    host: process.env.PGHOST || 'postgres',
-    port: Number(process.env.PGPORT || 5432),
-    user: process.env.PGUSER || 'gg',
-    password: process.env.PGPASSWORD || 'ggpassword',
-    database: process.env.PGDATABASE || 'gg',
-  });
+  let pool: any = null;
+  if (!TEST_MODE) {
+    const pgMod: any = await import('pg');
+    const Pool = (pgMod.default?.Pool) || pgMod.Pool;
+    pool = new Pool({
+      host: process.env.PGHOST || 'postgres',
+      port: Number(process.env.PGPORT || 5432),
+      user: process.env.PGUSER || 'gg',
+      password: process.env.PGPASSWORD || 'ggpassword',
+      database: process.env.PGDATABASE || 'gg',
+    });
+  }
 
   // List fleets with a simple join to systems (optional fields)
   app.get('/v1/fleets', async (_req, rep) => {
