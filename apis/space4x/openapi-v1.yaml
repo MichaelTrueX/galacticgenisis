@@ -12,6 +12,20 @@ paths:
         '200':
           description: OK
   /v1/orders:
+    get:
+      operationId: listOrders
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  orders:
+                    type: array
+                    items:
+                      type: object
     post:
       operationId: submitOrder
       parameters:
@@ -44,6 +58,18 @@ paths:
                     type: string
                   target_turn:
                     type: integer
+  /v1/orders/{id}:
+    get:
+      operationId: getOrder
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+        '404': { description: Not Found }
+
   /v1/fleets:
     get:
       operationId: listFleets
@@ -59,4 +85,51 @@ paths:
                     type: array
                     items:
                       type: object
+    post:
+      operationId: createFleet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                empire_id: { type: string }
+                system_id: { type: string }
+                stance: { type: string }
+                supply: { type: integer }
+              required: [empire_id, system_id]
+      responses:
+        '201': { description: Created }
 
+  /v1/fleets/{id}:
+    get:
+      operationId: getFleet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK }
+        '404': { description: Not Found }
+    patch:
+      operationId: updateFleet
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                stance: { type: string }
+                supply: { type: integer, minimum: 0 }
+      responses:
+        '200': { description: OK }
+        '404': { description: Not Found }
