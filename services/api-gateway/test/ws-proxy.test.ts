@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
+
 import { describe, it, expect, vi } from 'vitest';
-import { buildServer } from '../src/index';
 
 // Mock ws client used inside proxy code path
 vi.mock('ws', () => {
@@ -16,10 +17,10 @@ vi.mock('@fastify/websocket', () => ({ default: () => {} }));
 
 describe('WS proxy route', () => {
   it('exposes /v1/stream route (handler existence)', async () => {
+    const { buildServer } = await import('../src/index');
     const app = await buildServer();
     // Fastify inject cannot upgrade WebSocket; this is a presence test
     const routes = app.printRoutes();
     expect(routes).toContain('stream (GET');
   });
 });
-
