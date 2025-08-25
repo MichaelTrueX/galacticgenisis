@@ -14,19 +14,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Install and test api-gateway
+      - name: Install, type-check and test api-gateway
         working-directory: services/api-gateway
         run: |
           npm ci || npm install
+          npx -y tsc -p tsconfig.json --noEmit
           npm test --silent
-      - name: Install and test orders-svc
+      - name: Install, type-check and test orders-svc
         working-directory: services/orders-svc
         run: |
           npm ci || npm install
+          npx -y tsc -p tsconfig.json --noEmit
           npm test --silent
-      - name: Install and test fleets-svc
+      - name: Install, type-check and test fleets-svc
         working-directory: services/fleets-svc
         run: |
           npm ci || npm install
+          npx -y tsc -p tsconfig.json --noEmit
           npm test --silent
 
