@@ -59,3 +59,10 @@ Roadmap (near term)
 - Deterministic Sim Core stub and basic apply() loop
 - CI: lint + unit tests + integration smoke
 
+
+Troubleshooting
+- Port busy on 19080: another service is using the port. Run scripts/dev-down.sh to clean up, or change the mapped port in deploy/docker-compose.override.local.yml.
+- Gateway not healthy: run docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml logs api-gateway and check for binding errors.
+- Tests fail due to DB: unit tests run with NODE_ENV=test, which stubs DB in fleets and orders. Ensure you run npm test in each service directory (no DB needed).
+- Smoke flakiness: ensure jq is installed locally; the CI installs it automatically. The move demo depends on seeds/worker to apply movements.
+

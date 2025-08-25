@@ -41,6 +41,31 @@ jobs:
         if: always()
         run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml logs || true
 
+      - name: Archive compose logs (failure)
+        if: failure()
+        run: |
+          mkdir -p artifacts
+          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml logs > artifacts/compose.logs.txt || true
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: compose-logs
+          path: artifacts/compose.logs.txt
+
+      - name: Archive compose logs (always)
+        if: always()
+        run: |
+          mkdir -p artifacts
+          docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml ps > artifacts/compose.ps.txt || true
+        shell: bash
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: compose-ps
+          path: artifacts/compose.ps.txt
+
+
       - name: Shutdown
         if: always()
         run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml down -v
