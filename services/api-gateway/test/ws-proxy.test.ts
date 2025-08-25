@@ -22,5 +22,6 @@ describe('WS proxy route', () => {
     // Fastify inject cannot upgrade WebSocket; this is a presence test
     const routes = app.printRoutes();
     expect(routes).toContain('stream (GET');
+    await app.close();
   }, 10000);
 });
