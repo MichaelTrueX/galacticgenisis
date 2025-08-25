@@ -2,9 +2,9 @@ name: Lint
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
   push:
-    branches: [ feat/* ]
+    branches: [feat/*]
 
 jobs:
   lint:
@@ -21,4 +21,4 @@ jobs:
           npx -y tsc -p services/api-gateway/tsconfig.json --noEmit
           npx -y tsc -p services/orders-svc/tsconfig.json --noEmit
           npx -y tsc -p services/fleets-svc/tsconfig.json --noEmit
-
+          npx -y tsc -p services/event-dispatcher/tsconfig.json --noEmit
