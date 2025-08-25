@@ -92,7 +92,7 @@ if _has_jq; then _assert_jq ".orders is array" "$(_req GET \"$GATEWAY_URL/v1/ord
 
 # 3b) Move demo (requires jq)
 if _has_jq; then
-  _print "Attempting move demo using sys-2 (requires seeds)"
+  _print "Attempting move demo using sys-2 (requires seeds) and resupply demo"
   # Create a fleet at sys-1
   create_resp=$(_req POST "$GATEWAY_URL/v1/fleets" '{"empire_id":"emp-1","system_id":"sys-1","stance":"neutral","supply":100}')
   create_code=${create_resp##*$'\n'}
@@ -125,6 +125,17 @@ if _has_jq; then
         fi
       else
         _print "✖ POST /v1/orders (move -> sys-2) failed ($move_code)"; _print "$move_body"; fail=$((fail+1))
+      fi
+      # Resupply demo
+      resupply_payload=$(printf '{"kind":"resupply","payload":{"fleetId":"%s","amount":20}}' "$new_id")
+      resupply_resp=$(_req POST "$GATEWAY_URL/v1/orders" "$resupply_payload" "Idempotency-Key" "smoke-resupply-$new_id")
+      resupply_code=${resupply_resp##*$'\n'}
+      resupply_body=${resupply_resp%$'\n'*}
+      if [[ "$resupply_code" =~ ^2[0-9]{2}$ ]]; then
+        _assert_jq "resupply receipt has orderId/target_turn" "$resupply_body" '.orderId and (.target_turn|type=="number")'
+        pass=$((pass+1))
+      else
+        _print "✖ POST /v1/orders (resupply) failed ($resupply_code)"; _print "$resupply_body"; fail=$((fail+1))
       fi
       # Wait until fleet shows at sys-2
       ok=false
