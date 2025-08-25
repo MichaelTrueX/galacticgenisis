@@ -27,8 +27,12 @@ export async function buildServer() {
       hint: 'Use the /v1/* endpoints below',
       endpoints: {
         health: '/v1/health',
-        fleets: '/v1/fleets',
-        orders: 'POST /v1/orders',
+        fleets_list: 'GET /v1/fleets',
+        fleets_create: 'POST /v1/fleets',
+        fleets_update: 'PATCH /v1/fleets/:id',
+        orders_submit: 'POST /v1/orders',
+        orders_list: 'GET /v1/orders',
+        orders_get: 'GET /v1/orders/:id',
         stream: 'WS /v1/stream',
       },
     });
