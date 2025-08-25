@@ -2,10 +2,10 @@ name: Dev Compose Smoke Test
 
 on:
   pull_request:
-    branches: [ main ]
+    branches: [main]
   workflow_dispatch:
   push:
-    branches: [ feat/* ]
+    branches: [feat/*]
 
 jobs:
   smoke:
@@ -14,10 +14,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install jq
+      - name: Install jq and websocat (for WS smoke)
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y jq
+          sudo apt-get install -y jq websocat || sudo apt-get install -y jq
 
       - name: Start compose stack
         run: |
@@ -36,8 +36,8 @@ jobs:
           docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml logs || true
           exit 1
 
-      - name: Run smoke checks
-        run: bash scripts/smoke.sh
+      - name: Run smoke checks (with WS assertion)
+        run: bash scripts/smoke.sh --ws
 
       - name: Compose logs (always)
         if: always()
@@ -67,8 +67,6 @@ jobs:
           name: compose-ps
           path: artifacts/compose.ps.txt
 
-
       - name: Shutdown
         if: always()
         run: docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml down -v
-
