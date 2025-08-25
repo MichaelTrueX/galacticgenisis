@@ -10,12 +10,18 @@ import type { Publisher } from './publisher';
 import { createConsolePublisher, createNatsPublisher } from './publisher';
 import { startDevTick } from './dev-tick';
 
-export type Sim = { apply: (order: { kind: string; payload: Record<string, unknown> }) => Promise<{ applied: boolean; notes: string }> };
+export type Sim = {
+  apply: (order: {
+    kind: string;
+    payload: Record<string, unknown>;
+  }) => Promise<{ applied: boolean; notes: string }>;
+};
 
 function createMockSim(): Sim {
   return {
     async apply(order) {
       if (order.kind === 'move') return { applied: true, notes: 'moved one step (mock)' };
+      if (order.kind === 'resupply') return { applied: true, notes: 'resupplied (mock)' };
       return { applied: false, notes: 'unsupported kind (mock)' };
     },
   };
@@ -27,13 +33,15 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
   const app = Fastify({ logger: true });
 
   // DB pool (internal docker network defaults)
-  const pool = TEST_MODE ? null : new Pool({
-    host: process.env.PGHOST || 'postgres',
-    port: Number(process.env.PGPORT || 5432),
-    user: process.env.PGUSER || 'gg',
-    password: process.env.PGPASSWORD || 'ggpassword',
-    database: process.env.PGDATABASE || 'gg',
-  });
+  const pool = TEST_MODE
+    ? null
+    : new Pool({
+        host: process.env.PGHOST || 'postgres',
+        port: Number(process.env.PGPORT || 5432),
+        user: process.env.PGUSER || 'gg',
+        password: process.env.PGPASSWORD || 'ggpassword',
+        database: process.env.PGDATABASE || 'gg',
+      });
 
   let publisher: Publisher;
   if (pub) {
@@ -91,17 +99,61 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
       if (req.body.kind === 'move') {
         const fid = (req.body.payload as any)?.fleetId || (req.body.payload as any)?.fleet_id;
         const to = (req.body.payload as any)?.toSystemId || (req.body.payload as any)?.to_system_id;
-        if (!fid) return rep.status(400).send({ error: 'invalid_request', message: 'fleetId is required' });
-        if (!to) return rep.status(400).send({ error: 'invalid_request', message: 'toSystemId is required' });
+        if (!fid)
+          return rep.status(400).send({ error: 'invalid_request', message: 'fleetId is required' });
+        if (!to)
+          return rep
+            .status(400)
+            .send({ error: 'invalid_request', message: 'toSystemId is required' });
         // Validate both entities exist
         if (!TEST_MODE && pool) {
           try {
             const [[f], [s]] = await Promise.all([
-              pool.query('select 1 from fleets where id = $1', [fid]).then(r => r.rows),
-              pool.query('select 1 from systems where id = $1', [to]).then(r => r.rows),
+              pool.query('select 1 from fleets where id = $1', [fid]).then((r) => r.rows),
+              pool.query('select 1 from systems where id = $1', [to]).then((r) => r.rows),
             ]);
-            if (!f) return rep.status(400).send({ error: 'invalid_request', field: 'fleetId', message: 'fleet not found' });
-            if (!s) return rep.status(400).send({ error: 'invalid_request', field: 'toSystemId', message: 'toSystemId not found' });
+            if (!f)
+              return rep
+                .status(400)
+                .send({ error: 'invalid_request', field: 'fleetId', message: 'fleet not found' });
+            if (!s)
+              return rep
+                .status(400)
+                .send({
+                  error: 'invalid_request',
+                  field: 'toSystemId',
+                  message: 'toSystemId not found',
+                });
+          } catch (err: any) {
+            app.log.error({ err }, 'validation query failed');
+            return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
+          }
+        }
+      } else if (req.body.kind === 'resupply') {
+        const p = (req.body.payload || {}) as any;
+        const fid = p.fleetId || p.fleet_id;
+        const amt = p.amount;
+        if (typeof fid !== 'string' || fid.length < 1) {
+          return rep
+            .status(400)
+            .send({ error: 'invalid_request', field: 'fleetId', message: 'fleetId required' });
+        }
+        if (typeof amt !== 'number' || !Number.isInteger(amt) || amt <= 0) {
+          return rep
+            .status(400)
+            .send({
+              error: 'invalid_request',
+              field: 'amount',
+              message: 'amount must be positive integer',
+            });
+        }
+        if (!TEST_MODE && pool) {
+          try {
+            const { rows } = await pool.query('select 1 from fleets where id = $1', [fid]);
+            if (!rows[0])
+              return rep
+                .status(400)
+                .send({ error: 'invalid_request', field: 'fleetId', message: 'fleet not found' });
           } catch (err: any) {
             app.log.error({ err }, 'validation query failed');
             return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
@@ -135,7 +187,15 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
         on conflict (idem_key) do update set id = excluded.id -- ensure same orderId returned on repeat
         returning id, target_turn, status
       `;
-      const upsertParams = [orderId, empireId, req.body.kind, JSON.stringify(req.body.payload ?? {}), target_turn, idem, 'accepted'];
+      const upsertParams = [
+        orderId,
+        empireId,
+        req.body.kind,
+        JSON.stringify(req.body.payload ?? {}),
+        target_turn,
+        idem,
+        'accepted',
+      ];
       let row: any;
       if (TEST_MODE || !pool) {
         row = { id: orderId, target_turn, status: 'accepted' };
@@ -150,10 +210,17 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
       }
 
       // Publish receipt stub (to be wired to NATS later)
-      await publisher.publish('order.receipt', { orderId: row.id, status: row.status, target_turn: row.target_turn, delta });
+      await publisher.publish('order.receipt', {
+        orderId: row.id,
+        status: row.status,
+        target_turn: row.target_turn,
+        delta,
+      });
 
-      return rep.status(202).send({ orderId: row.id, target_turn: row.target_turn, idemKey, delta });
-    }
+      return rep
+        .status(202)
+        .send({ orderId: row.id, target_turn: row.target_turn, idemKey, delta });
+    },
   );
 
   // Fetch order by id
@@ -163,7 +230,7 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
     try {
       const { rows } = await pool.query(
         'select id, empire_id, kind, payload, target_turn, idem_key, status, created_at from orders where id = $1',
-        [id]
+        [id],
       );
       if (!rows[0]) return rep.status(404).send({ error: 'not_found' });
       return rep.send(rows[0]);
@@ -178,7 +245,7 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
     if (TEST_MODE || !pool) return rep.send({ orders: [] });
     try {
       const { rows } = await pool.query(
-        'select id, empire_id, kind, payload, target_turn, idem_key, status, created_at from orders order by created_at desc limit 50'
+        'select id, empire_id, kind, payload, target_turn, idem_key, status, created_at from orders order by created_at desc limit 50',
       );
       return rep.send({ orders: rows });
     } catch (err: any) {
@@ -190,7 +257,7 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
   return app;
 }
 
-// Simple worker: pick an accepted 'move' order, mark processing, toggle fleet system, mark applied
+// Simple worker: pick an accepted 'move' order, apply movement with supply cost, then mark applied
 function startApplyWorker(publisher: Publisher, intervalMs = Number(process.env.APPLY_MS || 2000)) {
   const pool = new Pool({
     host: process.env.PGHOST || 'postgres',
@@ -200,34 +267,118 @@ function startApplyWorker(publisher: Publisher, intervalMs = Number(process.env.
     database: process.env.PGDATABASE || 'gg',
   });
 
+  const COST_PER_MOVE = 10;
+
   const t = setInterval(async () => {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      // Find one accepted move order
+      // Find one accepted order (move or resupply)
       const sel = await client.query(
-        "select id, payload from orders where status = 'accepted' and kind = 'move' order by created_at asc limit 1 for update skip locked"
+        "select id, kind, payload from orders where status = 'accepted' and kind in ('move','resupply') order by created_at asc limit 1 for update skip locked",
       );
       const row = sel.rows[0];
-      if (!row) { await client.query('COMMIT'); return; }
+      if (!row) {
+        await client.query('COMMIT');
+        return;
+      }
       const orderId = row.id as string;
-      const fleetId = (row.payload?.fleetId || row.payload?.fleet_id) as string | undefined;
-      const toSystemId = (row.payload?.toSystemId || row.payload?.to_system_id) as string | undefined;
-      if (!fleetId || !toSystemId) { await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']); await client.query('COMMIT'); return; }
+      const kind = row.kind as string;
+      const p = row.payload || {};
 
-      // Move the fleet to the target system
-      const f = await client.query('select id, system_id from fleets where id = $1 for update', [fleetId]);
-      if (!f.rows[0]) { await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']); await client.query('COMMIT'); return; }
-      await client.query('update fleets set system_id = $2 where id = $1', [fleetId, toSystemId]);
-      await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']);
-      await client.query('COMMIT');
+      if (kind === 'move') {
+        const fleetId = (p.fleetId || p.fleet_id) as string | undefined;
+        const toSystemId = (p.toSystemId || p.to_system_id) as string | undefined;
+        if (!fleetId || !toSystemId) {
+          await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']);
+          await client.query('COMMIT');
+          return;
+        }
 
+        // Move the fleet to the target system
+        const f = await client.query(
+          'select id, system_id, supply from fleets where id = $1 for update',
+          [fleetId],
+        );
+        if (!f.rows[0]) {
+          await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']);
+          await client.query('COMMIT');
+          return;
+        }
+        // Enforce supply cost
+        if ((f.rows[0].supply ?? 0) < COST_PER_MOVE) {
+          await client.query('update orders set status = $2 where id = $1', [orderId, 'rejected']);
+          await client.query('COMMIT');
+          try {
+            await publisher.publish('order.rejected', { orderId, reason: 'insufficient_supply' });
+          } catch {
+            /* ignore publish error */
+          }
+          return;
+        }
+        // Apply move and decrement supply
+        await client.query('update fleets set system_id = $2, supply = supply - $3 where id = $1', [
+          fleetId,
+          toSystemId,
+          COST_PER_MOVE,
+        ]);
+        await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']);
+        await client.query('COMMIT');
+
+        try {
+          const fromSystemId = f.rows[0].system_id as string;
+          await publisher.publish('fleet.moved', {
+            fleetId,
+            from: fromSystemId,
+            to: toSystemId,
+            orderId,
+          });
+          await publisher.publish('order.applied', { orderId, status: 'applied' });
+        } catch {
+          /* ignore publish error */
+        }
+      } else if (kind === 'resupply') {
+        const fleetId = (p.fleetId || p.fleet_id) as string | undefined;
+        const amount = Number(p.amount || 0);
+        if (!fleetId || amount <= 0 || !Number.isInteger(amount)) {
+          await client.query('update orders set status = $2 where id = $1', [orderId, 'rejected']);
+          await client.query('COMMIT');
+          return;
+        }
+
+        // Lock fleet and update supply with cap
+        const f = await client.query('select id, supply from fleets where id = $1 for update', [
+          fleetId,
+        ]);
+        if (!f.rows[0]) {
+          await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']);
+          await client.query('COMMIT');
+          return;
+        }
+        const currentSupply = Number(f.rows[0].supply || 0);
+        const MAX_SUPPLY = 200; // soft cap for MVP
+        const newSupply = Math.min(MAX_SUPPLY, currentSupply + amount);
+        await client.query('update fleets set supply = $2 where id = $1', [fleetId, newSupply]);
+        await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']);
+        await client.query('COMMIT');
+
+        try {
+          await publisher.publish('fleet.resupplied', { fleetId, amount, newSupply, orderId });
+          await publisher.publish('order.applied', { orderId, status: 'applied' });
+        } catch {
+          /* ignore publish error */
+        }
+      } else {
+        // Unknown kind - mark applied to avoid blocking
+        await client.query('update orders set status = $2 where id = $1', [orderId, 'applied']);
+        await client.query('COMMIT');
+      }
+    } catch {
       try {
-        await publisher.publish('fleet.moved', { fleetId, from: current, to: next, orderId });
-        await publisher.publish('order.applied', { orderId, status: 'applied' });
-      } catch {}
-    } catch (err) {
-      try { await client.query('ROLLBACK'); } catch {}
+        await client.query('ROLLBACK');
+      } catch {
+        /* ignore rollback error */
+      }
     } finally {
       client.release();
     }
@@ -240,16 +391,31 @@ async function start() {
   const app = await buildServer();
   const stopTick = startDevTick((app as any).publisher ?? { publish: async () => {} });
 
-  // Start a tiny background worker to apply 'move' orders by toggling fleet system between sys-1 and sys-2
-  // This is for MVP demo purposes only; later we will replace with a proper scheduler.
+  // Start a tiny background worker to apply orders
   const pub: Publisher = (app as any).publisher;
   const worker = startApplyWorker(pub);
 
   await app.listen({ port, host: '0.0.0.0' });
   console.log(`orders-svc listening on :${port}`);
   // graceful shutdown
-  process.on('SIGINT', () => { try { stopTick(); worker(); } catch {} process.exit(0); });
-  process.on('SIGTERM', () => { try { stopTick(); worker(); } catch {} process.exit(0); });
+  process.on('SIGINT', () => {
+    try {
+      stopTick();
+      worker();
+    } catch {
+      /* ignore */
+    }
+    process.exit(0);
+  });
+  process.on('SIGTERM', () => {
+    try {
+      stopTick();
+      worker();
+    } catch {
+      /* ignore */
+    }
+    process.exit(0);
+  });
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
@@ -258,4 +424,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   });
 }
-
