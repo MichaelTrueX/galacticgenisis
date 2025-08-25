@@ -17,10 +17,15 @@ export async function createDispatcher(natsUrl = NATS_URL, wsPort = WS_PORT): Pr
   // HTTP server for health and WS upgrade
   const server = http.createServer((req, res) => {
     if (!req.url) return res.end('');
-    if (req.method === 'GET' && req.url.startsWith('/healthz')) {
+    if (req.method === 'GET' && (req.url === '/healthz' || req.url.startsWith('/healthz'))) {
       res.statusCode = 200;
       res.setHeader('content-type', 'text/plain');
       return res.end('ok');
+    }
+    if (req.method === 'GET' && (req.url === '/readyz' || req.url.startsWith('/readyz'))) {
+      res.statusCode = 200;
+      res.setHeader('content-type', 'text/plain');
+      return res.end('ready');
     }
     res.statusCode = 404;
     return res.end('not_found');
