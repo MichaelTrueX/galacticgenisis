@@ -7,8 +7,8 @@ What works today
 - Docker Compose dev stack (PostgreSQL, NATS, services)
 - API Gateway with proxied routes to services
   - GET /v1/health
-  - GET /v1/fleets
-  - POST /v1/orders (idempotency header supported)
+  - Fleets: GET /v1/fleets, POST /v1/fleets, PATCH /v1/fleets/:id
+  - Orders: POST /v1/orders (idempotency header supported), GET /v1/orders, GET /v1/orders/:id
   - WS /v1/stream
 
 Quick Start (Ubuntu)
@@ -37,7 +37,8 @@ Test the API (defaults to http://localhost:19080)
   - make logs
 
 - WebSocket stream (optional):
-  - npm i -g wscat && wscat -c ws://localhost:19080/v1/stream
+  - Option A: npm i -g wscat && wscat -c ws://localhost:19080/v1/stream
+  - Option B: websocat -t ws://localhost:19080/v1/stream
 
 Quick manual testing
 
@@ -93,6 +94,7 @@ Environment variables (dev)
 - Event Dispatcher
   - NATS_URL: NATS servers URL (default nats://localhost:4222)
   - WS_PORT: websocket server port (default 8090)
+  - Readiness: GET /readyz returns 503 if NATS is not connected
 - Fleets Service
   - PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE: database connection (compose defaults)
 
