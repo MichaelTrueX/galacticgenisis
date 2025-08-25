@@ -56,6 +56,7 @@ lint-types:
 	( cd services/api-gateway && npx -y tsc -p tsconfig.json --noEmit )
 	( cd services/orders-svc && npx -y tsc -p tsconfig.json --noEmit )
 	( cd services/fleets-svc && npx -y tsc -p tsconfig.json --noEmit )
+	( cd services/event-dispatcher && npx -y tsc -p tsconfig.json --noEmit )
 
 format-check:
 	npx -y prettier -c "**/*.{ts,js,json,md,yml,yaml}" "!**/dist/**" "!**/node_modules/**"
