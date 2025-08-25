@@ -15,9 +15,37 @@ export async function buildServer() {
   app.get('/v1/health', async () => {
     return { ok: true };
   });
-  // Liveness and readiness
+  // Liveness and aggregated readiness
   app.get('/healthz', async () => ({ status: 'ok' }));
-  app.get('/readyz', async () => ({ ready: true }));
+  app.get('/readyz', async (_req, rep) => {
+    // Derive HTTP base for event dispatcher from WS URL
+    const evtHttp = EVENTS_WS_URL.startsWith('ws')
+      ? EVENTS_WS_URL.replace(/^wss?:\/\//, (m: string) =>
+          m === 'wss://' ? 'https://' : 'http://',
+        )
+      : EVENTS_WS_URL;
+
+    const targets = [
+      { name: 'orders', url: `${ORDERS_SVC_URL}/readyz` },
+      { name: 'fleets', url: `${FLEETS_SVC_URL}/readyz` },
+      { name: 'events', url: `${evtHttp}/readyz` },
+    ];
+
+    const results = await Promise.all(
+      targets.map(async (t) => {
+        try {
+          const res = await fetch(t.url);
+          return { name: t.name, status: res.status };
+        } catch {
+          return { name: t.name, status: 0 };
+        }
+      }),
+    );
+
+    const allReady = results.every((r) => r.status === 200);
+    const details = Object.fromEntries(results.map((r) => [r.name, r.status]));
+    return rep.status(allReady ? 200 : 503).send({ ready: allReady, details });
+  });
 
   // Friendly root index to help manual testing
   app.get('/', async (_req, rep) => {

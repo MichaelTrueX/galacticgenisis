@@ -80,6 +80,14 @@ _check() {
 
 _print "Gateway: $GATEWAY_URL (ws check: $WS_CHECK)"
 
+# 0) Wait for gateway readiness (aggregated)
+for i in $(seq 1 30); do
+  code=$(curl -sS -o /dev/null -w "%{http_code}" "$GATEWAY_URL/readyz" || true)
+  if [[ "$code" == "200" ]]; then _print "gateway ready"; break; fi
+  sleep 1
+  if [[ $i -eq 30 ]]; then _print "gateway not ready after 30s; proceeding anyway"; fi
+done
+
 # 1) Health
 _check "GET /v1/health" GET "$GATEWAY_URL/v1/health"
 if _has_jq; then echo "$(_req GET "$GATEWAY_URL/v1/health" | head -n1)" | jq -e '.ok==true' >/dev/null 2>&1 || true; fi
