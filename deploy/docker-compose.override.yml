@@ -1,4 +1,4 @@
-version: "3.9"
+version: '3.9'
 
 services:
   api-gateway:
@@ -10,6 +10,11 @@ services:
       - ORDERS_SVC_URL=http://orders-svc:8081
       - FLEETS_SVC_URL=http://fleets-svc:8082
       - EVENTS_WS_URL=ws://event-dispatcher:8090
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8080/healthz || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 6
     command: sh -lc "npm ci || npm i && npm run dev"
 
   orders-svc:
@@ -21,6 +26,11 @@ services:
       - NATS_URL=nats://nats:4222
       # - USE_WASM_SIM=1
       # - SIM_WASM_PATH=/app/path/to/pkg.js
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8081/healthz || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 6
     command: sh -lc "npm ci || npm i && npm run dev"
 
   event-dispatcher:
@@ -31,6 +41,11 @@ services:
     environment:
       - NATS_URL=nats://nats:4222
       - WS_PORT=8090
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8090/healthz || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 6
     command: sh -lc "npm ci || npm i && npm run dev"
 
   fleets-svc:
@@ -38,11 +53,15 @@ services:
     working_dir: /app
     volumes:
       - ../services/fleets-svc:/app
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -qO- http://localhost:8082/healthz || exit 1']
+      interval: 5s
+      timeout: 3s
+      retries: 6
     command: sh -lc "npm ci || npm i && npm run dev"
 
   nats:
     image: nats:2-alpine
     ports:
-      - "4222:4222"
-      - "8222:8222"
-
+      - '4222:4222'
+      - '8222:8222'

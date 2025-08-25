@@ -99,6 +99,19 @@ Environment variables (dev)
 Notes on intent
 
 - NATS_URL enables real event fan-out for local end-to-end streams via event-dispatcher.
+
+Troubleshooting (dev)
+
+- Port conflicts: ensure 8080 (gateway), 4222/8222 (NATS) aren’t in use; override gateway host port via GATEWAY_PORT env
+- Compose up/down:
+  - make up to start; make down to stop and prune volumes
+  - docker compose ps/logs: make logs for snapshot
+- Smoke issues:
+  - Verify GET /v1/health returns 200
+  - Try scripts/smoke.sh --gateway http://localhost:19080 if using mapped port
+  - WS checks: install websocat and pass --ws
+- Lint-staged failures on commit: run make format and make lint locally, commit again
+
 - APPLY_MS controls how fast the worker looks for accepted orders; keep high enough to avoid churn.
 - DEFAULT_EMPIRE_ID allows the API to accept orders in dev without authentication or user context.
 - WS_PORT exposes the dispatcher’s WS feed consumed by the gateway at /v1/stream.
