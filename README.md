@@ -3,6 +3,7 @@
 This monorepo hosts the backend services, database schema, and dev tooling for the Galactic Genesis 4X strategy game.
 
 What works today
+
 - Docker Compose dev stack (PostgreSQL, NATS, services)
 - API Gateway with proxied routes to services
   - GET /v1/health
@@ -11,12 +12,14 @@ What works today
   - WS /v1/stream
 
 Quick Start (Ubuntu)
+
 - Start (fixed ports; frees 19080 on host if needed):
   - bash scripts/dev-up-fixed.sh
 - Stop:
   - scripts/dev-down.sh
 
 Test the API (defaults to http://localhost:19080)
+
 - Health:
   - curl http://localhost:19080/v1/health
 - Fleets:
@@ -37,6 +40,7 @@ Test the API (defaults to http://localhost:19080)
   - npm i -g wscat && wscat -c ws://localhost:19080/v1/stream
 
 Quick manual testing
+
 - REST Client examples (VS Code):
   - Open apis/space4x/gateway.http and click “Send Request” on a request line
   - Includes Health, Fleets list/create, Orders submit/list/get
@@ -44,8 +48,8 @@ Quick manual testing
   - scripts/smoke.sh
   - Verifies health, fleets list, submit move, GET /v1/orders/{id}, and polls for the fleet to arrive at sys-2 if seeds/worker are running
 
-
 Repo layout
+
 - deploy/ — docker-compose and infra config
 - scripts/ — dev scripts (dev-up-fixed.sh, dev-up.sh, dev-down.sh)
 - services/
@@ -57,18 +61,44 @@ Repo layout
 - apis/space4x/ — OpenAPI specs
 
 Notes
-- The gateway does not serve "/" content; use "/v1/*" endpoints. A friendly root index is provided to list them.
+
+- The gateway does not serve "/" content; use "/v1/\*" endpoints. A friendly root index is provided to list them.
 - Services are currently stubs; persistence and real Sim logic are next.
 
 Roadmap (near term)
+
 - Minimal persistence for fleets and orders
 - Deterministic Sim Core stub and basic apply() loop
 - CI: lint + unit tests + integration smoke
 
-
 Troubleshooting
+
 - Port busy on 19080: another service is using the port. Run scripts/dev-down.sh to clean up, or change the mapped port in deploy/docker-compose.override.local.yml.
 - Gateway not healthy: run docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml logs api-gateway and check for binding errors.
 - Tests fail due to DB: unit tests run with NODE_ENV=test, which stubs DB in fleets and orders. Ensure you run npm test in each service directory (no DB needed).
 - Smoke flakiness: ensure jq is installed locally; the CI installs it automatically. The move demo depends on seeds/worker to apply movements.
 
+Environment variables (dev)
+
+- API Gateway
+  - PORT: gateway port (default 8080 in compose, 19080 host-mapped)
+  - ORDERS_SVC_URL: downstream orders service URL (default http://localhost:8081)
+  - FLEETS_SVC_URL: downstream fleets service URL (default http://localhost:8082)
+  - EVENTS_WS_URL: upstream dispatcher websocket URL (default ws://localhost:8090)
+- Orders Service
+  - NATS_URL: if set, publishes events to NATS instead of console
+  - APPLY_MS: worker tick interval in ms (default 2000)
+  - DEFAULT_EMPIRE_ID: empire used for accepted orders in dev/test (default emp-1)
+  - PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE: database connection (compose defaults)
+- Event Dispatcher
+  - NATS_URL: NATS servers URL (default nats://localhost:4222)
+  - WS_PORT: websocket server port (default 8090)
+- Fleets Service
+  - PGHOST/PGPORT/PGUSER/PGPASSWORD/PGDATABASE: database connection (compose defaults)
+
+Notes on intent
+
+- NATS_URL enables real event fan-out for local end-to-end streams via event-dispatcher.
+- APPLY_MS controls how fast the worker looks for accepted orders; keep high enough to avoid churn.
+- DEFAULT_EMPIRE_ID allows the API to accept orders in dev without authentication or user context.
+- WS_PORT exposes the dispatcher’s WS feed consumed by the gateway at /v1/stream.

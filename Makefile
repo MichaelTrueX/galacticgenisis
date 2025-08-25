@@ -1,19 +1,20 @@
 # Simple developer convenience targets
-# Usage: make up | make down | make test | make smoke | make logs | make lint | make format
+# Usage: make up | make down | make test | make smoke | make smoke-resupply | make logs | make lint | make format
 
 SHELL := /bin/bash
 
-.PHONY: help up down test test-gateway test-orders test-fleets smoke logs lint lint-types format format-check
+.PHONY: help up down test test-gateway test-orders test-fleets smoke smoke-resupply logs lint lint-types format format-check
 
 help:
 	@echo "Targets:"
-	@echo "  up           - start dev stack (fixed ports)"
-	@echo "  down         - stop dev stack"
-	@echo "  test         - run unit tests for all services"
-	@echo "  smoke        - run end-to-end smoke script"
-	@echo "  logs         - docker compose ps/logs snapshot"
-	@echo "  lint         - type-check (tsc --noEmit) and prettier check"
-	@echo "  format       - prettier write common files"
+	@echo "  up              - start dev stack (fixed ports)"
+	@echo "  down            - stop dev stack"
+	@echo "  test            - run unit tests for all services"
+	@echo "  smoke           - run end-to-end smoke script"
+	@echo "  smoke-resupply  - run smoke with resupply payload example"
+	@echo "  logs            - docker compose ps/logs snapshot"
+	@echo "  lint            - type-check (tsc --noEmit) and prettier check"
+	@echo "  format          - prettier write common files"
 
 up:
 	bash scripts/dev-up-fixed.sh
@@ -35,6 +36,9 @@ test-fleets:
 
 smoke:
 	bash scripts/smoke.sh
+
+smoke-resupply:
+	GATEWAY_URL=http://localhost:19080 bash scripts/smoke.sh --payload '{"kind":"resupply","payload":{"fleetId":"f1","amount":20}}'
 
 logs:
 	docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.override.yml -f deploy/docker-compose.override.local.yml ps || true
