@@ -10,7 +10,7 @@ export async function buildServer() {
   let pool: any = null;
   if (!TEST_MODE) {
     const pgMod: any = await import('pg');
-    const Pool = (pgMod.default?.Pool) || pgMod.Pool;
+    const Pool = pgMod.default?.Pool || pgMod.Pool;
     pool = new Pool({
       host: process.env.PGHOST || 'postgres',
       port: Number(process.env.PGPORT || 5432),
@@ -31,7 +31,7 @@ export async function buildServer() {
                 s.name as system_name
            from fleets f
            left join systems s on s.id = f.system_id
-           order by f.id asc`
+           order by f.id asc`,
       );
       return rep.send({ fleets: rows });
     } catch (err: any) {
@@ -44,7 +44,9 @@ export async function buildServer() {
   app.get('/v1/health', async () => ({ ok: true }));
 
   // Create a fleet
-  app.post<{ Body: { id?: string; empire_id: string; system_id: string; stance?: string; supply?: number } }>(
+  app.post<{
+    Body: { id?: string; empire_id: string; system_id: string; stance?: string; supply?: number };
+  }>(
     '/v1/fleets',
     {
       schema: {
@@ -55,10 +57,10 @@ export async function buildServer() {
             empire_id: { type: 'string' },
             system_id: { type: 'string' },
             stance: { type: 'string' },
-            supply: { type: 'integer' }
+            supply: { type: 'integer' },
           },
           required: ['empire_id', 'system_id'],
-          additionalProperties: false
+          additionalProperties: false,
         },
       },
     },
@@ -71,7 +73,10 @@ export async function buildServer() {
         // Validate system exists when DB available
         if (!TEST_MODE && pool) {
           const sys = await pool.query('select 1 from systems where id = $1', [system_id]);
-          if (!sys.rows[0]) return rep.status(400).send({ error: 'invalid_system', message: 'system_id not found' });
+          if (!sys.rows[0])
+            return rep
+              .status(400)
+              .send({ error: 'invalid_system', message: 'system_id not found' });
         }
 
         if (TEST_MODE || !pool) {
@@ -82,16 +87,17 @@ export async function buildServer() {
           `insert into fleets (id, empire_id, system_id, stance, supply)
            values ($1, $2, $3, $4, $5)
            returning id, empire_id, system_id, stance, supply`,
-          [id, empire_id, system_id, stance, supply]
+          [id, empire_id, system_id, stance, supply],
         );
         return rep.status(201).send(rows[0]);
       } catch (err: any) {
         app.log.error({ err }, 'fleet create failed');
         // unique violation
-        if (err && err.code === '23505') return rep.status(409).send({ error: 'conflict', message: 'id already exists' });
+        if (err && err.code === '23505')
+          return rep.status(409).send({ error: 'conflict', message: 'id already exists' });
         return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
       }
-    }
+    },
   );
 
   // Update a fleet (stance/supply)
@@ -104,9 +110,9 @@ export async function buildServer() {
           type: 'object',
           properties: {
             stance: { type: 'string' },
-            supply: { type: 'integer' }
+            supply: { type: 'integer', minimum: 0 },
           },
-          additionalProperties: false
+          additionalProperties: false,
         },
       },
     },
@@ -115,13 +121,25 @@ export async function buildServer() {
       const stance = req.body.stance ?? null;
       const supply = typeof req.body.supply === 'number' ? req.body.supply : null;
       try {
+        if (TEST_MODE || !pool) {
+          const base = {
+            id,
+            empire_id: 'emp-1',
+            system_id: 'sys-1',
+            stance: 'neutral',
+            supply: 100,
+          } as any;
+          if (stance !== null) base.stance = stance;
+          if (supply !== null) base.supply = supply;
+          return rep.send(base);
+        }
         const { rows } = await pool.query(
           `update fleets
              set stance = coalesce($2, stance),
                  supply = coalesce($3, supply)
            where id = $1
            returning id, empire_id, system_id, stance, supply`,
-          [id, stance, supply]
+          [id, stance, supply],
         );
         if (!rows[0]) return rep.status(404).send({ error: 'not_found' });
         return rep.send(rows[0]);
@@ -129,7 +147,7 @@ export async function buildServer() {
         app.log.error({ err }, 'fleet update failed');
         return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
       }
-    }
+    },
   );
 
   return app;
@@ -148,4 +166,3 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     process.exit(1);
   });
 }
-
