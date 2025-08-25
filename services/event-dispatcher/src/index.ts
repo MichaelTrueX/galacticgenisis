@@ -1,5 +1,6 @@
 import { connect, StringCodec, NatsConnection, Subscription } from 'nats';
 import { WebSocketServer, WebSocket } from 'ws';
+import http from 'node:http';
 
 const NATS_URL = process.env.NATS_URL || 'nats://localhost:4222';
 const WS_PORT = Number(process.env.WS_PORT || 8090);
@@ -12,7 +13,20 @@ export type Dispatcher = {
 export async function createDispatcher(natsUrl = NATS_URL, wsPort = WS_PORT): Promise<Dispatcher> {
   const nc: NatsConnection = await connect({ servers: natsUrl });
   const sc = StringCodec();
-  const wss = new WebSocketServer({ port: wsPort });
+
+  // HTTP server for health and WS upgrade
+  const server = http.createServer((req, res) => {
+    if (!req.url) return res.end('');
+    if (req.method === 'GET' && req.url.startsWith('/healthz')) {
+      res.statusCode = 200;
+      res.setHeader('content-type', 'text/plain');
+      return res.end('ok');
+    }
+    res.statusCode = 404;
+    return res.end('not_found');
+  });
+
+  const wss = new WebSocketServer({ server });
   const clients = new Set<WebSocket>();
 
   wss.on('connection', (ws) => {
@@ -26,6 +40,10 @@ export async function createDispatcher(natsUrl = NATS_URL, wsPort = WS_PORT): Pr
 
   return {
     async start() {
+      await new Promise<void>((resolve, reject) => {
+        server.listen(wsPort, '0.0.0.0', () => resolve());
+        server.on('error', reject);
+      });
       subs = topics.map((t) => nc.subscribe(t));
       (async () => {
         for await (const s of subs) {
@@ -47,6 +65,7 @@ export async function createDispatcher(natsUrl = NATS_URL, wsPort = WS_PORT): Pr
     async stop() {
       subs.forEach((s) => s.unsubscribe());
       wss.close();
+      await new Promise<void>((resolve) => server.close(() => resolve()));
       await nc.drain();
     },
   };
