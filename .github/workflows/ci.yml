@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [ main, 'feat/**', 'fix/**' ]
+    branches: [main, 'feat/**', 'fix/**']
   pull_request:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   test:
@@ -32,4 +32,9 @@ jobs:
           npm ci || npm install
           npx -y tsc -p tsconfig.json --noEmit
           npm test --silent
-
+      - name: Install, type-check and test event-dispatcher
+        working-directory: services/event-dispatcher
+        run: |
+          npm ci || npm install
+          npx -y tsc -p tsconfig.json --noEmit
+          npm test --silent
