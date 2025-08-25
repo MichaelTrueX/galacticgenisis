@@ -1,6 +1,4 @@
 {
-  "*.{ts,js,md,json,yml,yaml}": [
-    "prettier -w"
-  ]
+  "**/*.{ts,tsx}": ["npx -y eslint --fix"],
+  "**/*.{ts,tsx,js,jsx,md,json,yml,yaml}": ["npx -y prettier -w"]
 }
-
