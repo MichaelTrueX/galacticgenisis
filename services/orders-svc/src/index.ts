@@ -117,13 +117,11 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
                 .status(400)
                 .send({ error: 'invalid_request', field: 'fleetId', message: 'fleet not found' });
             if (!s)
-              return rep
-                .status(400)
-                .send({
-                  error: 'invalid_request',
-                  field: 'toSystemId',
-                  message: 'toSystemId not found',
-                });
+              return rep.status(400).send({
+                error: 'invalid_request',
+                field: 'toSystemId',
+                message: 'toSystemId not found',
+              });
           } catch (err: any) {
             app.log.error({ err }, 'validation query failed');
             return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
@@ -139,13 +137,11 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
             .send({ error: 'invalid_request', field: 'fleetId', message: 'fleetId required' });
         }
         if (typeof amt !== 'number' || !Number.isInteger(amt) || amt <= 0) {
-          return rep
-            .status(400)
-            .send({
-              error: 'invalid_request',
-              field: 'amount',
-              message: 'amount must be positive integer',
-            });
+          return rep.status(400).send({
+            error: 'invalid_request',
+            field: 'amount',
+            message: 'amount must be positive integer',
+          });
         }
         if (!TEST_MODE && pool) {
           try {
@@ -240,6 +236,10 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
     }
   });
 
+  // Liveness and readiness
+  app.get('/healthz', async () => ({ status: 'ok' }));
+  app.get('/readyz', async () => ({ ready: true }));
+
   // List orders (basic)
   app.get('/v1/orders', async (_req, rep) => {
     if (TEST_MODE || !pool) return rep.send({ orders: [] });
@@ -258,7 +258,10 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
 }
 
 // Simple worker: pick an accepted 'move' order, apply movement with supply cost, then mark applied
-function startApplyWorker(publisher: Publisher, intervalMs = Number(process.env.APPLY_MS || 2000)) {
+export function startApplyWorker(
+  publisher: Publisher,
+  intervalMs = Number(process.env.APPLY_MS || 2000),
+) {
   const pool = new Pool({
     host: process.env.PGHOST || 'postgres',
     port: Number(process.env.PGPORT || 5432),

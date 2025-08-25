@@ -1,9 +1,10 @@
 import Fastify from 'fastify';
 
-const port = Number(process.env.PORT || 8080);
-const ORDERS_SVC_URL = process.env.ORDERS_SVC_URL || 'http://localhost:8081';
-const FLEETS_SVC_URL = process.env.FLEETS_SVC_URL || 'http://localhost:8082';
-const EVENTS_WS_URL = process.env.EVENTS_WS_URL || 'ws://localhost:8090';
+const ENV = (globalThis as any).process?.env ?? {};
+const port = Number(ENV.PORT || 8080);
+const ORDERS_SVC_URL = ENV.ORDERS_SVC_URL || 'http://localhost:8081';
+const FLEETS_SVC_URL = ENV.FLEETS_SVC_URL || 'http://localhost:8082';
+const EVENTS_WS_URL = ENV.EVENTS_WS_URL || 'ws://localhost:8090';
 
 export async function buildServer() {
   const app = Fastify({ logger: true });
@@ -11,9 +12,12 @@ export async function buildServer() {
   const fastifyWs = (await import('@fastify/websocket')).default as any;
   app.register(fastifyWs);
 
-  app.get('/v1/health', async (_req, _rep) => {
+  app.get('/v1/health', async () => {
     return { ok: true };
   });
+  // Liveness and readiness
+  app.get('/healthz', async () => ({ status: 'ok' }));
+  app.get('/readyz', async () => ({ ready: true }));
 
   // Friendly root index to help manual testing
   app.get('/', async (_req, rep) => {
@@ -25,8 +29,8 @@ export async function buildServer() {
         health: '/v1/health',
         fleets: '/v1/fleets',
         orders: 'POST /v1/orders',
-        stream: 'WS /v1/stream'
-      }
+        stream: 'WS /v1/stream',
+      },
     });
   });
 
@@ -68,12 +72,24 @@ export async function buildServer() {
       } catch {
         return rep.status(res.status).send(text);
       }
-    }
+    },
   );
 
   // Proxy: GET /v1/fleets -> fleets-svc
   app.get('/v1/fleets', async (_req, rep) => {
     const res = await fetch(`${FLEETS_SVC_URL}/v1/fleets`);
+    const text = await res.text();
+    try {
+      return rep.status(res.status).send(JSON.parse(text));
+    } catch {
+      return rep.status(res.status).send(text);
+    }
+  });
+
+  // Proxy: GET /v1/fleets/:id -> fleets-svc
+  app.get('/v1/fleets/:id', async (req, rep) => {
+    const { id } = req.params as any as { id: string };
+    const res = await fetch(`${FLEETS_SVC_URL}/v1/fleets/${id}`);
     const text = await res.text();
     try {
       return rep.status(res.status).send(JSON.parse(text));
@@ -90,57 +106,108 @@ export async function buildServer() {
       body: JSON.stringify((req as any).body ?? {}),
     });
     const text = await res.text();
-    try { return rep.status(res.status).send(JSON.parse(text)); } catch { return rep.status(res.status).send(text); }
+    try {
+      return rep.status(res.status).send(JSON.parse(text));
+    } catch {
+      return rep.status(res.status).send(text);
+    }
   });
 
   // Proxy: PATCH /v1/fleets/:id -> fleets-svc
   app.patch('/v1/fleets/:id', async (req, rep) => {
-    const { id } = (req.params as any) as { id: string };
+    const { id } = req.params as any as { id: string };
     const res = await fetch(`${FLEETS_SVC_URL}/v1/fleets/${id}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify((req as any).body ?? {}),
     });
     const text = await res.text();
-    try { return rep.status(res.status).send(JSON.parse(text)); } catch { return rep.status(res.status).send(text); }
+    try {
+      return rep.status(res.status).send(JSON.parse(text));
+    } catch {
+      return rep.status(res.status).send(text);
+    }
   });
 
   // Proxy: GET /v1/orders -> orders-svc
   app.get('/v1/orders', async (_req, rep) => {
     const res = await fetch(`${ORDERS_SVC_URL}/v1/orders`);
     const text = await res.text();
-    try { return rep.status(res.status).send(JSON.parse(text)); } catch { return rep.status(res.status).send(text); }
+    try {
+      return rep.status(res.status).send(JSON.parse(text));
+    } catch {
+      return rep.status(res.status).send(text);
+    }
   });
 
   // Proxy: GET /v1/orders/:id -> orders-svc
   app.get('/v1/orders/:id', async (req, rep) => {
-    const { id } = (req.params as any) as { id: string };
+    const { id } = req.params as any as { id: string };
     const res = await fetch(`${ORDERS_SVC_URL}/v1/orders/${id}`);
     const text = await res.text();
-    try { return rep.status(res.status).send(JSON.parse(text)); } catch { return rep.status(res.status).send(text); }
+    try {
+      return rep.status(res.status).send(JSON.parse(text));
+    } catch {
+      return rep.status(res.status).send(text);
+    }
   });
   // WS proxy: GET /v1/stream -> event-dispatcher WS (simple pipe)
-  app.get('/v1/stream', { websocket: true } as any, (connection: any /* fastify ws plugin shape */) => {
-    const { socket } = connection;
-    // Lazy require ws to avoid import types clashing
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const WebSocket = require('ws');
-    const upstream = new WebSocket(EVENTS_WS_URL);
+  app.get(
+    '/v1/stream',
+    { websocket: true } as any,
+    async (connection: any /* fastify ws plugin shape */) => {
+      const { socket } = connection;
+      // Lazy import ws to avoid ESM/CJS type clashing
+      const WSMod: any = await import('ws' as any);
+      const upstream = new WSMod.WebSocket(EVENTS_WS_URL);
 
-    // Pipe upstream -> client
-    upstream.on('message', (data: any) => {
-      try { socket.send(data); } catch {}
-    });
-    upstream.on('close', () => { try { socket.close(); } catch {} });
-    upstream.on('error', () => { try { socket.close(); } catch {} });
+      // Pipe upstream -> client
+      upstream.on('message', (data: any) => {
+        try {
+          socket.send(data);
+        } catch (err) {
+          app.log.debug({ err }, 'ws downstream send failed');
+        }
+      });
+      upstream.on('close', () => {
+        try {
+          socket.close();
+        } catch (err) {
+          app.log.debug({ err }, 'ws downstream close');
+        }
+      });
+      upstream.on('error', () => {
+        try {
+          socket.close();
+        } catch (err) {
+          app.log.debug({ err }, 'ws downstream error-close');
+        }
+      });
 
-    // Pipe client -> upstream (if needed later)
-    socket.on('message', (data: any) => {
-      try { upstream.send(data); } catch {}
-    });
-    socket.on('close', () => { try { upstream.close(); } catch {} });
-    socket.on('error', () => { try { upstream.close(); } catch {} });
-  });
+      // Pipe client -> upstream (if needed later)
+      socket.on('message', (data: any) => {
+        try {
+          upstream.send(data);
+        } catch (err) {
+          app.log.debug({ err }, 'ws upstream send failed');
+        }
+      });
+      socket.on('close', () => {
+        try {
+          upstream.close();
+        } catch (err) {
+          app.log.debug({ err }, 'ws upstream close');
+        }
+      });
+      socket.on('error', () => {
+        try {
+          upstream.close();
+        } catch (err) {
+          app.log.debug({ err }, 'ws upstream error-close');
+        }
+      });
+    },
+  );
 
   return app;
 }
@@ -151,10 +218,12 @@ async function start() {
   console.log(`api-gateway listening on :${port}`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (
+  (globalThis as any).process &&
+  import.meta.url === `file://${(globalThis as any).process.argv[1]}`
+) {
   start().catch((err) => {
     console.error(err);
-    process.exit(1);
+    (globalThis as any).process.exit(1);
   });
 }
-

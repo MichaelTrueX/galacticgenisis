@@ -40,6 +40,35 @@ export async function buildServer() {
     }
   });
 
+  // Get fleet by id
+  app.get<{ Params: { id: string } }>('/v1/fleets/:id', async (req, rep) => {
+    const { id } = req.params;
+    try {
+      if (TEST_MODE || !pool) {
+        return rep.send({
+          id,
+          empire_id: 'emp-1',
+          system_id: 'sys-1',
+          stance: 'neutral',
+          supply: 100,
+        });
+      }
+      const { rows } = await pool.query(
+        `select f.id, f.empire_id, f.system_id, f.stance, f.supply,
+                s.name as system_name
+           from fleets f
+           left join systems s on s.id = f.system_id
+          where f.id = $1`,
+        [id],
+      );
+      if (!rows[0]) return rep.status(404).send({ error: 'not_found' });
+      return rep.send(rows[0]);
+    } catch (err: any) {
+      app.log.error({ err }, 'fleet get failed');
+      return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
+    }
+  });
+
   // Health
   app.get('/v1/health', async () => ({ ok: true }));
 
