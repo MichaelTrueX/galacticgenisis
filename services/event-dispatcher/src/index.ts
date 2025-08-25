@@ -22,7 +22,7 @@ export async function createDispatcher(natsUrl = NATS_URL, wsPort = WS_PORT): Pr
 
   let subs: Subscription[] = [];
 
-  const topics = ['order.receipt'];
+  const topics = ['order.receipt', 'fleet.moved', 'fleet.resupplied'];
 
   return {
     async start() {
@@ -35,7 +35,9 @@ export async function createDispatcher(natsUrl = NATS_URL, wsPort = WS_PORT): Pr
               for (const ws of clients) {
                 try {
                   ws.send(text);
-                } catch {}
+                } catch {
+                  // ignore WS send errors (client may have disconnected)
+                }
               }
             }
           })();
@@ -51,9 +53,10 @@ export async function createDispatcher(natsUrl = NATS_URL, wsPort = WS_PORT): Pr
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  createDispatcher().then((d) => d.start()).catch((err) => {
-    console.error(err);
-    process.exit(1);
-  });
+  createDispatcher()
+    .then((d) => d.start())
+    .catch((err) => {
+      console.error(err);
+      process.exit(1);
+    });
 }
-
