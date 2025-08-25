@@ -1,0 +1,24 @@
+name: Lint
+
+on:
+  pull_request:
+    branches: [ main ]
+  push:
+    branches: [ feat/* ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Prettier check (repo)
+        run: npx -y prettier -c "**/*.{ts,js,json,md,yml,yaml}" "!**/dist/**" "!**/node_modules/**"
+      - name: Type check (services)
+        run: |
+          npx -y tsc -p services/api-gateway/tsconfig.json --noEmit
+          npx -y tsc -p services/orders-svc/tsconfig.json --noEmit
+          npx -y tsc -p services/fleets-svc/tsconfig.json --noEmit
+
