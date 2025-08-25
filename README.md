@@ -30,6 +30,15 @@ Test the API (defaults to http://localhost:19080)
 - WebSocket stream (optional):
   - npm i -g wscat && wscat -c ws://localhost:19080/v1/stream
 
+Quick manual testing
+- REST Client examples (VS Code):
+  - Open apis/space4x/gateway.http and click “Send Request” on a request line
+  - Includes Health, Fleets list/create, Orders submit/list/get
+- Smoke test:
+  - scripts/smoke.sh
+  - Verifies health, fleets list, submit move, GET /v1/orders/{id}, and polls for the fleet to arrive at sys-2 if seeds/worker are running
+
+
 Repo layout
 - deploy/ — docker-compose and infra config
 - scripts/ — dev scripts (dev-up-fixed.sh, dev-up.sh, dev-down.sh)

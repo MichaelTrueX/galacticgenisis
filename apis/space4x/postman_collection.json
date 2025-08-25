@@ -1,0 +1,52 @@
+{
+  "info": {
+    "name": "Galactic Genesis Gateway",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "request": { "method": "GET", "url": "http://localhost:8080/v1/health" }
+    },
+    {
+      "name": "List Fleets",
+      "request": { "method": "GET", "url": "http://localhost:8080/v1/fleets" }
+    },
+    {
+      "name": "Create Fleet",
+      "request": {
+        "method": "POST",
+        "header": [ { "key": "content-type", "value": "application/json" } ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"empire_id\": \"emp-1\",\n  \"system_id\": \"sys-1\",\n  \"stance\": \"neutral\",\n  \"supply\": 100\n}"
+        },
+        "url": "http://localhost:8080/v1/fleets"
+      }
+    },
+    {
+      "name": "Submit Move Order",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "content-type", "value": "application/json" },
+          { "key": "Idempotency-Key", "value": "demo-1" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"kind\": \"move\",\n  \"payload\": { \"fleetId\": \"f1\", \"toSystemId\": \"sys-2\" }\n}"
+        },
+        "url": "http://localhost:8080/v1/orders"
+      }
+    },
+    {
+      "name": "List Orders",
+      "request": { "method": "GET", "url": "http://localhost:8080/v1/orders" }
+    },
+    {
+      "name": "Get Order",
+      "request": { "method": "GET", "url": "http://localhost:8080/v1/orders/{{orderId}}" }
+    }
+  ]
+}
+
