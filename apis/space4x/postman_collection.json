@@ -6,11 +6,11 @@
   "item": [
     {
       "name": "Health",
-      "request": { "method": "GET", "url": "http://localhost:8080/v1/health" }
+      "request": { "method": "GET", "url": "{{baseUrl}}/v1/health" }
     },
     {
       "name": "List Fleets",
-      "request": { "method": "GET", "url": "http://localhost:8080/v1/fleets" }
+      "request": { "method": "GET", "url": "{{baseUrl}}/v1/fleets" }
     },
     {
       "name": "Create Fleet",
@@ -21,7 +21,7 @@
           "mode": "raw",
           "raw": "{\n  \"empire_id\": \"emp-1\",\n  \"system_id\": \"sys-1\",\n  \"stance\": \"neutral\",\n  \"supply\": 100\n}"
         },
-        "url": "http://localhost:8080/v1/fleets"
+        "url": "{{baseUrl}}/v1/fleets"
       }
     },
     {
@@ -36,16 +36,16 @@
           "mode": "raw",
           "raw": "{\n  \"kind\": \"move\",\n  \"payload\": { \"fleetId\": \"f1\", \"toSystemId\": \"sys-2\" }\n}"
         },
-        "url": "http://localhost:8080/v1/orders"
+        "url": "{{baseUrl}}/v1/orders"
       }
     },
     {
       "name": "List Orders",
-      "request": { "method": "GET", "url": "http://localhost:8080/v1/orders" }
+      "request": { "method": "GET", "url": "{{baseUrl}}/v1/orders" }
     },
     {
       "name": "Get Order",
-      "request": { "method": "GET", "url": "http://localhost:8080/v1/orders/{{orderId}}" }
+      "request": { "method": "GET", "url": "{{baseUrl}}/v1/orders/{{orderId}}" }
     }
   ]
 }

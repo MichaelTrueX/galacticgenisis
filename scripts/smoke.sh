@@ -32,6 +32,15 @@ done
 pass=0; fail=0
 _has_jq() { command -v jq >/dev/null 2>&1; }
 _print() { printf "%s\n" "$*"; }
+# jq assertion helper (name, json, jq_filter)
+_assert_jq() {
+  local name="$1" json="$2" filter="$3"
+  if _has_jq && printf "%s" "$json" | jq -e "$filter" >/dev/null 2>&1; then
+    _print "✔ $name (jq)"; pass=$((pass+1))
+  else
+    _print "✖ $name (jq)"; fail=$((fail+1))
+  fi
+}
 
 _req() {
   local method="$1" url="$2" body="${3:-}"; shift || true
@@ -76,6 +85,9 @@ if _has_jq; then echo "$(_req GET "$GATEWAY_URL/v1/fleets" | head -n1)" | jq -e 
 
 # 3) Submit order
 _check "POST /v1/orders" POST "$GATEWAY_URL/v1/orders" "$PAYLOAD" "Idempotency-Key" "$IDEM_KEY"
+# 3a) List orders and assert shape when jq is available
+_check "GET /v1/orders" GET "$GATEWAY_URL/v1/orders"
+if _has_jq; then _assert_jq ".orders is array" "$(_req GET \"$GATEWAY_URL/v1/orders\" | head -n1)" '.orders|type=="array"'; fi
 
 
 # 3b) Move demo (requires jq)
@@ -88,6 +100,7 @@ if _has_jq; then
   if [[ "$create_code" =~ ^2[0-9]{2}$ ]]; then
     new_id=$(printf "%s" "$create_body" | jq -r '.id // empty')
     if [[ -n "$new_id" ]]; then
+      _assert_jq "create fleet body has id/system_id" "$create_body" '.id and .system_id'
       _print "Created fleet: $new_id"
       # Submit a move order to sys-2
       move_payload=$(printf '{"kind":"move","payload":{"fleetId":"%s","toSystemId":"sys-2"}}' "$new_id")
@@ -96,14 +109,17 @@ if _has_jq; then
       move_code=${move_resp##*$'\n'}
       move_body=${move_resp%$'\n'*}
       if [[ "$move_code" =~ ^2[0-9]{2}$ ]]; then
+        _assert_jq "move receipt has orderId/target_turn" "$move_body" '.orderId and (.target_turn|type=="number")'
         orderId=$(printf "%s" "$move_body" | jq -r '.orderId // empty')
         _print "Submitted move order: $orderId"
         # Verify GET /v1/orders/<id>
         get_order_resp=$(_req GET "$GATEWAY_URL/v1/orders/$orderId")
         get_order_code=${get_order_resp##*$'\n'}
+        get_order_body=${get_order_resp%$'\n'*}
         if [[ "$get_order_code" =~ ^2[0-9]{2}$|^404$ ]]; then
           _print "✔ GET /v1/orders/$orderId returned $get_order_code"
           pass=$((pass+1))
+          if [[ "$get_order_code" == "200" ]]; then _assert_jq "order has id/status" "$get_order_body" '.id and .status'; fi
         else
           _print "✖ GET /v1/orders/$orderId failed ($get_order_code)"; fail=$((fail+1))
         fi

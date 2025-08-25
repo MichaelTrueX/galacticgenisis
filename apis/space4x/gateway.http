@@ -1,11 +1,12 @@
 ### Health
-GET http://localhost:8080/v1/health
+@baseUrl={{baseUrl}}
+GET {{baseUrl}}/v1/health
 
 ### Fleets
-GET http://localhost:8080/v1/fleets
+GET {{baseUrl}}/v1/fleets
 
 ### Create Fleet
-POST http://localhost:8080/v1/fleets
+POST {{baseUrl}}/v1/fleets
 content-type: application/json
 
 {
@@ -16,7 +17,7 @@ content-type: application/json
 }
 
 ### Submit move order
-POST http://localhost:8080/v1/orders
+POST {{baseUrl}}/v1/orders
 content-type: application/json
 Idempotency-Key: demo-cli-1
 
@@ -26,8 +27,8 @@ Idempotency-Key: demo-cli-1
 }
 
 ### List orders
-GET http://localhost:8080/v1/orders
+GET {{baseUrl}}/v1/orders
 
 ### Get order
-GET http://localhost:8080/v1/orders/{{orderId}}
+GET {{baseUrl}}/v1/orders/{{orderId}}
 
