@@ -72,6 +72,10 @@ export async function buildServer() {
   // Health
   app.get('/v1/health', async () => ({ ok: true }));
 
+  // Liveness and readiness
+  app.get('/healthz', async () => ({ status: 'ok' }));
+  app.get('/readyz', async () => ({ ready: true }));
+
   // Create a fleet
   app.post<{
     Body: { id?: string; empire_id: string; system_id: string; stance?: string; supply?: number };
