@@ -91,7 +91,25 @@ if _has_jq; then
       _print "Created fleet: $new_id"
       # Submit a move order to sys-2
       move_payload=$(printf '{"kind":"move","payload":{"fleetId":"%s","toSystemId":"sys-2"}}' "$new_id")
-      _check "POST /v1/orders (move -> sys-2)" POST "$GATEWAY_URL/v1/orders" "$move_payload" "Idempotency-Key" "smoke-move-$new_id"
+      # Submit a move order to sys-2 and capture orderId
+      move_resp=$(_req POST "$GATEWAY_URL/v1/orders" "$move_payload" "Idempotency-Key" "smoke-move-$new_id")
+      move_code=${move_resp##*$'\n'}
+      move_body=${move_resp%$'\n'*}
+      if [[ "$move_code" =~ ^2[0-9]{2}$ ]]; then
+        orderId=$(printf "%s" "$move_body" | jq -r '.orderId // empty')
+        _print "Submitted move order: $orderId"
+        # Verify GET /v1/orders/<id>
+        get_order_resp=$(_req GET "$GATEWAY_URL/v1/orders/$orderId")
+        get_order_code=${get_order_resp##*$'\n'}
+        if [[ "$get_order_code" =~ ^2[0-9]{2}$|^404$ ]]; then
+          _print "✔ GET /v1/orders/$orderId returned $get_order_code"
+          pass=$((pass+1))
+        else
+          _print "✖ GET /v1/orders/$orderId failed ($get_order_code)"; fail=$((fail+1))
+        fi
+      else
+        _print "✖ POST /v1/orders (move -> sys-2) failed ($move_code)"; _print "$move_body"; fail=$((fail+1))
+      fi
       # Wait until fleet shows at sys-2
       ok=false
       for i in $(seq 1 10); do

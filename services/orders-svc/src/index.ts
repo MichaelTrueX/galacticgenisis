@@ -100,8 +100,8 @@ export async function buildServer(pub?: Publisher, sim?: Sim) {
               pool.query('select 1 from fleets where id = $1', [fid]).then(r => r.rows),
               pool.query('select 1 from systems where id = $1', [to]).then(r => r.rows),
             ]);
-            if (!f) return rep.status(400).send({ error: 'invalid_request', message: 'fleet not found' });
-            if (!s) return rep.status(400).send({ error: 'invalid_request', message: 'toSystemId not found' });
+            if (!f) return rep.status(400).send({ error: 'invalid_request', field: 'fleetId', message: 'fleet not found' });
+            if (!s) return rep.status(400).send({ error: 'invalid_request', field: 'toSystemId', message: 'toSystemId not found' });
           } catch (err: any) {
             app.log.error({ err }, 'validation query failed');
             return rep.status(500).send({ error: 'db_error', message: err?.message || 'unknown' });
