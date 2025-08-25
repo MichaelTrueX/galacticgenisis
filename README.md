@@ -27,6 +27,12 @@ Test the API (defaults to http://localhost:19080)
   - Submit move: curl -X POST http://localhost:19080/v1/orders -H 'content-type: application/json' -H 'Idempotency-Key: demo-1' -d '{"kind":"move","payload":{"fleetId":"fleet-1","toSystemId":"sys-2"}}'
   - List: curl http://localhost:19080/v1/orders
   - Get: curl http://localhost:19080/v1/orders/<orderId>
+- Make targets:
+  - make up / make down
+  - make test (or make test-gateway|test-orders|test-fleets)
+  - make smoke
+  - make logs
+
 - WebSocket stream (optional):
   - npm i -g wscat && wscat -c ws://localhost:19080/v1/stream
 
