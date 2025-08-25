@@ -3,7 +3,7 @@
 
 SHELL := /bin/bash
 
-.PHONY: help up down test test-gateway test-orders test-fleets smoke smoke-resupply logs lint lint-types format format-check
+.PHONY: help up down test test-gateway test-orders test-fleets test-dispatcher smoke smoke-resupply logs lint lint-types format format-check
 
 help:
 	@echo "Targets:"
@@ -22,7 +22,7 @@ up:
 down:
 	scripts/dev-down.sh
 
-test: test-gateway test-orders test-fleets
+test: test-gateway test-orders test-fleets test-dispatcher
 
 # Individual tests
 test-gateway:
@@ -33,6 +33,9 @@ test-orders:
 
 test-fleets:
 	npm test --silent --prefix services/fleets-svc
+
+test-dispatcher:
+	npm test --silent --prefix services/event-dispatcher
 
 smoke:
 	bash scripts/smoke.sh

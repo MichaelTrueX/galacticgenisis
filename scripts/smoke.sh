@@ -4,16 +4,18 @@ set -euo pipefail
 # Simple smoke test against the API gateway.
 # Requirements: curl; jq (optional for stricter checks)
 # Usage:
-#   scripts/smoke.sh [--gateway URL] [--idem KEY] [--payload JSON]
+#   scripts/smoke.sh [--gateway URL] [--idem KEY] [--payload JSON] [--ws]
 # Defaults:
 #   GATEWAY_URL (env or --gateway) default http://localhost:8080
 #   Idempotency-Key default demo-1
 #   Payload default '{"kind":"move","payload":{"fleetId":"f1"}}'
+#   --ws subscribes briefly to /v1/stream to assert an event appears (requires websocat)
 
 GATEWAY_URL=${GATEWAY_URL:-http://localhost:8080}
 IDEM_KEY=demo-1
 PAYLOAD='{"kind":"move","payload":{"fleetId":"f1"}}'
 
+WS_CHECK=false
 # Parse args (very simple)
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -23,10 +25,13 @@ while [[ $# -gt 0 ]]; do
       IDEM_KEY="$2"; shift 2;;
     --payload)
       PAYLOAD="$2"; shift 2;;
+    --ws)
+      WS_CHECK=true; shift 1;;
     -h|--help)
-      echo "Usage: $0 [--gateway URL] [--idem KEY] [--payload JSON]"; exit 0;;
+      echo "Usage: $0 [--gateway URL] [--idem KEY] [--payload JSON] [--ws]"; exit 0;;
     *) echo "Unknown arg: $1"; exit 1;;
   esac
+  shift || true
 done
 
 pass=0; fail=0
@@ -73,7 +78,7 @@ _check() {
   fi
 }
 
-_print "Gateway: $GATEWAY_URL"
+_print "Gateway: $GATEWAY_URL (ws check: $WS_CHECK)"
 
 # 1) Health
 _check "GET /v1/health" GET "$GATEWAY_URL/v1/health"
@@ -92,7 +97,7 @@ if _has_jq; then _assert_jq ".orders is array" "$(_req GET \"$GATEWAY_URL/v1/ord
 
 # 3b) Move demo (requires jq)
 if _has_jq; then
-  _print "Attempting move demo using sys-2 (requires seeds) and resupply demo"
+  _print "Attempting move demo using sys-2 (requires seeds) and resupply demo (ws check: $WS_CHECK)"
   # Create a fleet at sys-1
   create_resp=$(_req POST "$GATEWAY_URL/v1/fleets" '{"empire_id":"emp-1","system_id":"sys-1","stance":"neutral","supply":100}')
   create_code=${create_resp##*$'\n'}
@@ -127,6 +132,13 @@ if _has_jq; then
         _print "✖ POST /v1/orders (move -> sys-2) failed ($move_code)"; _print "$move_body"; fail=$((fail+1))
       fi
       # Resupply demo
+      if $WS_CHECK && command -v websocat >/dev/null 2>&1; then
+        # background subscribe to /v1/stream and capture a single message
+        ws_url=${GATEWAY_URL/http/ws}
+        ws_tmp=$(mktemp)
+        (websocat -t "$ws_url/v1/stream" | head -n1 > "$ws_tmp") &
+        ws_pid=$!
+      fi
       resupply_payload=$(printf '{"kind":"resupply","payload":{"fleetId":"%s","amount":20}}' "$new_id")
       resupply_resp=$(_req POST "$GATEWAY_URL/v1/orders" "$resupply_payload" "Idempotency-Key" "smoke-resupply-$new_id")
       resupply_code=${resupply_resp##*$'\n'}
@@ -134,6 +146,16 @@ if _has_jq; then
       if [[ "$resupply_code" =~ ^2[0-9]{2}$ ]]; then
         _assert_jq "resupply receipt has orderId/target_turn" "$resupply_body" '.orderId and (.target_turn|type=="number")'
         pass=$((pass+1))
+        # if ws check is on, wait briefly for an event
+        if $WS_CHECK && [[ -n "${ws_pid:-}" ]]; then
+          for i in $(seq 1 5); do
+            if [[ -s "$ws_tmp" ]]; then break; fi
+            sleep 1
+          done
+          if [[ -s "$ws_tmp" ]]; then _print "✔ WS received an event"; pass=$((pass+1)); else _print "✖ WS did not receive an event"; fail=$((fail+1)); fi
+          kill "$ws_pid" >/dev/null 2>&1 || true
+          rm -f "$ws_tmp" || true
+        fi
       else
         _print "✖ POST /v1/orders (resupply) failed ($resupply_code)"; _print "$resupply_body"; fail=$((fail+1))
       fi

@@ -27,6 +27,10 @@ Steps
       -d '{"kind":"resupply","payload":{"fleetId":"<your-fleet-id>","amount":20}}' | jq
    - Expect 202 with orderId and target_turn
 
+5. Optional WebSocket event assertion (fast)
+   - If websocat is installed, scripts/smoke.sh supports --ws to briefly subscribe to /v1/stream and assert an event arrives.
+   - Example: scripts/smoke.sh --ws
+
 Notes
 
 - orders-svc publishes to NATS; event-dispatcher broadcasts over WS; gateway proxies WS at /v1/stream
