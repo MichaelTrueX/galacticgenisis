@@ -14,6 +14,8 @@ export async function createDispatcher(natsUrl = NATS_URL, wsPort = WS_PORT): Pr
   const nc: NatsConnection = await connect({ servers: natsUrl });
   const sc = StringCodec();
 
+  const natsConnected = true; // set false on stop; in future, wire reconnection listeners
+
   // HTTP server for health and WS upgrade
   const server = http.createServer((req, res) => {
     if (!req.url) return res.end('');
@@ -23,9 +25,9 @@ export async function createDispatcher(natsUrl = NATS_URL, wsPort = WS_PORT): Pr
       return res.end('ok');
     }
     if (req.method === 'GET' && (req.url === '/readyz' || req.url.startsWith('/readyz'))) {
-      res.statusCode = 200;
+      res.statusCode = natsConnected ? 200 : 503;
       res.setHeader('content-type', 'text/plain');
-      return res.end('ready');
+      return res.end(natsConnected ? 'ready' : 'not_ready');
     }
     res.statusCode = 404;
     return res.end('not_found');
